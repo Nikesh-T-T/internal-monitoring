@@ -47,61 +47,19 @@ annotate MonitoringService.Messages with @(
         Facets                   : [
             {
                 $Type : 'UI.ReferenceFacet',
-                ID    : 'MessageFacet',
-                Label : 'Message',
-                Target: '@UI.FieldGroup#Message'
-            },
-            {
-                $Type : 'UI.ReferenceFacet',
-                ID    : 'KafkaFacet',
-                Label : 'Kafka',
-                Target: '@UI.FieldGroup#Kafka'
-            },
-            {
-                $Type : 'UI.ReferenceFacet',
-                ID    : 'ContextFacet',
-                Label : 'Context',
-                Target: '@UI.FieldGroup#Context'
-            },
-            {
-                $Type : 'UI.ReferenceFacet',
                 ID    : 'PayloadFacet',
                 Label : 'Payload',
                 Target: '@UI.FieldGroup#Payload'
+            },
+            {
+                $Type : 'UI.ReferenceFacet',
+                ID    : 'HeadersFacet',
+                Label : 'Headers',
+                Target: '@UI.FieldGroup#Headers'
             }
         ],
-        FieldGroup #Message      : {Data: [
-            {Value: serviceName},
-            {Value: messageTimestamp},
-            {Value: eventType},
-            {Value: messageType},
-            {Value: sourceId},
-            {Value: messageId},
-            {Value: correlationId},
-            {Value: ingestedAt}
-        ]},
-        FieldGroup #Kafka        : {Data: [
-            {Value: topic},
-            {Value: kafkaPartition},
-            {Value: kafkaOffset},
-            {Value: payloadSize},
-            {Value: headersSize},
-            {Value: truncated},
-            {Value: parseStatus},
-            {Value: messageHash},
-            {Value: payloadHash}
-        ]},
-        FieldGroup #Context      : {Data: [
-            {Value: tenantId},
-            {Value: useCaseName},
-            {Value: serviceType},
-            {Value: calmAction},
-            {Value: agentVersion}
-        ]},
-        FieldGroup #Payload      : {Data: [
-            {Value: payload},
-            {Value: properties}
-        ]}
+        FieldGroup #Payload      : {Data: [{Value: payload}]},
+        FieldGroup #Headers      : {Data: [{Value: properties}]}
     }
 );
 

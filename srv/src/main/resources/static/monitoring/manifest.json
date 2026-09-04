@@ -27,13 +27,20 @@
     }
   },
   "sap.ui5": {
+    "rootView": {
+      "viewName": "sap.fe.core.rootView.Fcl",
+      "type": "XML",
+      "id": "appRootView",
+      "async": true
+    },
     "dependencies": {
       "minUI5Version": "1.120.0",
       "libs": {
         "sap.m": {},
         "sap.ui.core": {},
         "sap.fe.templates": {},
-        "sap.ui.layout": {}
+        "sap.ui.layout": {},
+        "sap.f": {}
       }
     },
     "models": {
@@ -57,21 +64,30 @@
       "css": []
     },
     "routing": {
+      "config": {
+        "routerClass": "sap.f.routing.Router",
+        "flexibleColumnLayout": {
+          "defaultTwoColumnLayoutType": "TwoColumnsMidExpanded"
+        }
+      },
       "routes": [
         {
           "pattern": ":?query:",
           "name": "MessagesList",
-          "target": "MessagesList"
+          "target": "MessagesList",
+          "layout": "OneColumn"
         },
         {
           "pattern": "Messages({key}):?query:",
           "name": "MessagesDetail",
-          "target": "MessagesDetail"
+          "target": ["MessagesList", "MessagesDetail"],
+          "layout": "TwoColumnsMidExpanded"
         },
         {
           "pattern": "ServiceOverview:?query:",
           "name": "ServiceOverviewList",
-          "target": "ServiceOverviewList"
+          "target": "ServiceOverviewList",
+          "layout": "OneColumn"
         }
       ],
       "targets": {
@@ -79,6 +95,7 @@
           "type": "Component",
           "id": "MessagesList",
           "name": "sap.fe.templates.ListReport",
+          "controlAggregation": "beginColumnPages",
           "options": {
             "settings": {
               "contextPath": "/Messages",
@@ -113,6 +130,7 @@
           "type": "Component",
           "id": "MessagesDetail",
           "name": "sap.fe.templates.ObjectPage",
+          "controlAggregation": "midColumnPages",
           "options": {
             "settings": {
               "contextPath": "/Messages",
@@ -124,6 +142,7 @@
           "type": "Component",
           "id": "ServiceOverviewList",
           "name": "sap.fe.templates.ListReport",
+          "controlAggregation": "beginColumnPages",
           "options": {
             "settings": {
               "contextPath": "/ServiceOverview",
