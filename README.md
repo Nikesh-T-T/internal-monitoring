@@ -10,10 +10,35 @@ and aggregates on.
 
 ## Running it
 
+Backend and dashboard are **one process**: the CAP Java service serves the OData
+endpoints and the UI5 application from the same Spring Boot server, so there is
+no separate frontend to start and no proxy to configure.
+
+Build once from the **repository root** - `mvn -pl srv` fails the
+`reactorModuleConvergence` enforcer rule, and the CDS build has to run first
+anyway to generate the `cds.gen` classes and the H2 schema:
+
 ```bash
 mvn clean install
+```
+
+Then start it, either for development, with the automatic restart that
+`spring-boot-devtools` provides on a recompile:
+
+```bash
+cd srv
+mvn spring-boot:run
+```
+
+or from the packaged executable jar:
+
+```bash
 java -jar srv/target/internal-monitoring-exec.jar
 ```
+
+Either way the server listens on port 8080. Stop it with `Ctrl+C`. To use a
+different port, pass `--server.port=9090` to the jar, or
+`-Dspring-boot.run.arguments=--server.port=9090` to `mvn spring-boot:run`.
 
 Then open:
 
@@ -24,9 +49,28 @@ Then open:
 | OData service | <http://localhost:8080/odata/v4/MonitoringService/> |
 | Ingestion status | <http://localhost:8080/odata/v4/MonitoringService/IngestionStatus> |
 
+On the first visit the dashboard asks for a session cookie, because ingestion
+cannot start without one - see [Supplying credentials](#supplying-credentials).
+Until then the message list is empty by design.
+
 The dashboard loads UI5 from the public CDN; point the bootstrap `src` in
 `srv/src/main/resources/static/monitoring/index.html` at a local UI5
 distribution if the machine has no internet access.
+
+### Changing the UI without a rebuild
+
+The UI5 sources live in `srv/src/main/resources/static/monitoring/`. `mvn
+spring-boot:run` serves them from `srv/target/classes`, so a change reaches the
+browser once it has been copied there - any IDE build does it, or:
+
+```bash
+cd srv
+mvn process-resources
+```
+
+A reload of the browser page then shows it; no server restart is needed. Note
+that the packaged jar embeds its own copy, so when running with `java -jar` the
+UI only changes after a rebuild.
 
 ## Supplying credentials
 

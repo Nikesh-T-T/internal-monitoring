@@ -7,6 +7,29 @@
 	<title>Kafka Message Monitoring</title>
 
 	<!--
+		Standalone (non-launchpad) apps must establish the height chain
+		themselves: sap.fe pages size to their container, so without a
+		full-height html/body/container the content collapses to 0px and
+		the page renders blank.
+	-->
+	<style>
+		html,
+		body {
+			height: 100%;
+		}
+
+		/*
+			UI5 wraps the component in a generated preserve-area div before the
+			ComponentContainer; both must be full height or the chain collapses
+			to 0px between <body> and the sap.fe page.
+		*/
+		body > div,
+		.sapUiComponentContainer {
+			height: 100%;
+		}
+	</style>
+
+	<!--
 		UI5 is loaded from the public CDN. Point this at a locally hosted UI5
 		distribution when the application has to run without internet access.
 	-->
