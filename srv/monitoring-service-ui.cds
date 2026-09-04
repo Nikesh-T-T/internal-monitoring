@@ -1,0 +1,211 @@
+using MonitoringService from './monitoring-service';
+
+/**
+ * Fiori elements annotations for the Kafka message monitoring dashboard.
+ */
+
+annotate MonitoringService.Messages with @(
+    UI: {
+        HeaderInfo               : {
+            $Type         : 'UI.HeaderInfoType',
+            TypeName      : 'Kafka Message',
+            TypeNamePlural: 'Kafka Messages',
+            Title         : {Value: serviceName},
+            Description   : {Value: messageId}
+        },
+        PresentationVariant      : {
+            $Type     : 'UI.PresentationVariantType',
+            SortOrder : [{
+                $Type     : 'Common.SortOrderType',
+                Property  : messageTimestamp,
+                Descending: true
+            }],
+            Visualizations: ['@UI.LineItem']
+        },
+        SelectionFields          : [
+            serviceName,
+            eventType,
+            messageType,
+            parseStatus,
+            messageTimestamp,
+            kafkaPartition
+        ],
+        LineItem                 : [
+            {
+                $Type: 'UI.DataField',
+                Value: serviceName,
+                ![@UI.Importance]: #High
+            },
+            {
+                $Type: 'UI.DataField',
+                Value: messageTimestamp,
+                ![@UI.Importance]: #High
+            },
+            {
+                $Type: 'UI.DataField',
+                Value: eventType
+            },
+            {
+                $Type: 'UI.DataField',
+                Value: messageType
+            },
+            {
+                $Type: 'UI.DataField',
+                Value: kafkaPartition
+            },
+            {
+                $Type: 'UI.DataField',
+                Value: kafkaOffset
+            },
+            {
+                $Type: 'UI.DataField',
+                Value: payloadSize
+            },
+            {
+                $Type: 'UI.DataField',
+                Value: parseStatus
+            },
+            {
+                $Type: 'UI.DataField',
+                Value: ingestedAt
+            }
+        ],
+        Facets                   : [
+            {
+                $Type : 'UI.ReferenceFacet',
+                ID    : 'MessageFacet',
+                Label : 'Message',
+                Target: '@UI.FieldGroup#Message'
+            },
+            {
+                $Type : 'UI.ReferenceFacet',
+                ID    : 'KafkaFacet',
+                Label : 'Kafka',
+                Target: '@UI.FieldGroup#Kafka'
+            },
+            {
+                $Type : 'UI.ReferenceFacet',
+                ID    : 'ContextFacet',
+                Label : 'Context',
+                Target: '@UI.FieldGroup#Context'
+            },
+            {
+                $Type : 'UI.ReferenceFacet',
+                ID    : 'PayloadFacet',
+                Label : 'Payload',
+                Target: '@UI.FieldGroup#Payload'
+            }
+        ],
+        FieldGroup #Message      : {Data: [
+            {Value: serviceName},
+            {Value: messageTimestamp},
+            {Value: eventType},
+            {Value: messageType},
+            {Value: sourceId},
+            {Value: messageId},
+            {Value: correlationId},
+            {Value: ingestedAt}
+        ]},
+        FieldGroup #Kafka        : {Data: [
+            {Value: topic},
+            {Value: kafkaPartition},
+            {Value: kafkaOffset},
+            {Value: payloadSize},
+            {Value: headersSize},
+            {Value: truncated},
+            {Value: parseStatus},
+            {Value: messageHash},
+            {Value: payloadHash}
+        ]},
+        FieldGroup #Context      : {Data: [
+            {Value: tenantId},
+            {Value: useCaseName},
+            {Value: serviceType},
+            {Value: calmAction},
+            {Value: agentVersion}
+        ]},
+        FieldGroup #Payload      : {Data: [
+            {Value: payload},
+            {Value: properties}
+        ]}
+    }
+);
+
+annotate MonitoringService.Messages with {
+    ID               @UI.Hidden;
+    serviceName      @title: 'Service Name';
+    messageHash      @title: 'Message Hash';
+    payloadHash      @title: 'Payload Hash';
+    correlationId    @title: 'Correlation ID';
+    messageId        @title: 'Message ID';
+    sourceId         @title: 'Source ID';
+    eventType        @title: 'Event Type';
+    messageType      @title: 'Message Type';
+    topic            @title: 'Topic';
+    messageTimestamp @title: 'Message Time';
+    kafkaPartition   @title: 'Partition';
+    kafkaOffset      @title: 'Offset';
+    payloadSize      @title: 'Payload Size';
+    headersSize      @title: 'Headers Size';
+    truncated        @title: 'Truncated';
+    parseStatus      @title: 'Parse Status';
+    tenantId         @title: 'Tenant ID';
+    useCaseName      @title: 'Use Case';
+    serviceType      @title: 'Service Type';
+    calmAction       @title: 'Action';
+    agentVersion     @title: 'Agent Version';
+    payload          @title: 'Payload'  @UI.MultiLineText;
+    properties       @title: 'Properties'  @UI.MultiLineText;
+    ingestedAt       @title: 'Ingested At';
+}
+
+annotate MonitoringService.ServiceOverview with @(
+    UI: {
+        HeaderInfo         : {
+            $Type         : 'UI.HeaderInfoType',
+            TypeName      : 'Service',
+            TypeNamePlural: 'Services',
+            Title         : {Value: serviceName}
+        },
+        PresentationVariant: {
+            $Type    : 'UI.PresentationVariantType',
+            SortOrder: [{
+                $Type     : 'Common.SortOrderType',
+                Property  : messageCount,
+                Descending: true
+            }],
+            Visualizations: ['@UI.LineItem']
+        },
+        SelectionFields    : [serviceName],
+        LineItem           : [
+            {
+                $Type: 'UI.DataField',
+                Value: serviceName
+            },
+            {
+                $Type: 'UI.DataField',
+                Value: messageCount
+            },
+            {
+                $Type: 'UI.DataField',
+                Value: firstMessageAt
+            },
+            {
+                $Type: 'UI.DataField',
+                Value: lastMessageAt
+            },
+            {
+                $Type: 'UI.DataField',
+                Value: totalPayloadSize
+            }
+        ]
+    }
+);
+
+annotate MonitoringService.ServiceOverview with {
+    serviceName      @title: 'Service Name';
+    messageCount     @title: 'Messages';
+    firstMessageAt   @title: 'First Message';
+    lastMessageAt    @title: 'Last Message';
+    totalPayloadSize @title: 'Total Payload Size';
+}

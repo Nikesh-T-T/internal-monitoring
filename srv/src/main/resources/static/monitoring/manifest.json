@@ -1,0 +1,142 @@
+{
+  "_version": "1.59.0",
+  "sap.app": {
+    "id": "monitoring",
+    "type": "application",
+    "title": "{{appTitle}}",
+    "description": "{{appDescription}}",
+    "applicationVersion": {
+      "version": "1.0.0"
+    },
+    "dataSources": {
+      "mainService": {
+        "uri": "/odata/v4/MonitoringService/",
+        "type": "OData",
+        "settings": {
+          "odataVersion": "4.0"
+        }
+      }
+    }
+  },
+  "sap.ui": {
+    "technology": "UI5",
+    "deviceTypes": {
+      "desktop": true,
+      "tablet": true,
+      "phone": true
+    }
+  },
+  "sap.ui5": {
+    "dependencies": {
+      "minUI5Version": "1.120.0",
+      "libs": {
+        "sap.m": {},
+        "sap.ui.core": {},
+        "sap.fe.templates": {},
+        "sap.ui.layout": {}
+      }
+    },
+    "models": {
+      "i18n": {
+        "type": "sap.ui.model.resource.ResourceModel",
+        "settings": {
+          "bundleName": "monitoring.i18n.i18n"
+        }
+      },
+      "": {
+        "dataSource": "mainService",
+        "preload": true,
+        "settings": {
+          "operationMode": "Server",
+          "autoExpandSelect": true,
+          "earlyRequests": true
+        }
+      }
+    },
+    "resources": {
+      "css": []
+    },
+    "routing": {
+      "routes": [
+        {
+          "pattern": ":?query:",
+          "name": "MessagesList",
+          "target": "MessagesList"
+        },
+        {
+          "pattern": "Messages({key}):?query:",
+          "name": "MessagesDetail",
+          "target": "MessagesDetail"
+        },
+        {
+          "pattern": "ServiceOverview:?query:",
+          "name": "ServiceOverviewList",
+          "target": "ServiceOverviewList"
+        }
+      ],
+      "targets": {
+        "MessagesList": {
+          "type": "Component",
+          "id": "MessagesList",
+          "name": "sap.fe.templates.ListReport",
+          "options": {
+            "settings": {
+              "contextPath": "/Messages",
+              "variantManagement": "Page",
+              "initialLoad": true,
+              "navigation": {
+                "Messages": {
+                  "detail": {
+                    "route": "MessagesDetail"
+                  }
+                }
+              },
+              "controlConfiguration": {
+                "@com.sap.vocabularies.UI.v1.LineItem": {
+                  "actions": {
+                    "setCredentials": {
+                      "id": "setCredentialsAction",
+                      "text": "{i18n>credentialActionText}",
+                      "press": "monitoring.ext.CredentialActions.openCredentialDialog",
+                      "enabled": true,
+                      "position": {
+                        "placement": "Before"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "MessagesDetail": {
+          "type": "Component",
+          "id": "MessagesDetail",
+          "name": "sap.fe.templates.ObjectPage",
+          "options": {
+            "settings": {
+              "contextPath": "/Messages",
+              "editableHeaderContent": false
+            }
+          }
+        },
+        "ServiceOverviewList": {
+          "type": "Component",
+          "id": "ServiceOverviewList",
+          "name": "sap.fe.templates.ListReport",
+          "options": {
+            "settings": {
+              "contextPath": "/ServiceOverview",
+              "variantManagement": "Page",
+              "initialLoad": true
+            }
+          }
+        }
+      }
+    },
+    "contentDensities": {
+      "compact": true,
+      "cozy": true
+    }
+  }
+}

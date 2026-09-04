@@ -1,31 +1,145 @@
+# ---------------------------------------------------------------------------
+# Build output
+# ---------------------------------------------------------------------------
+**/target/
+**/bin/
+out/
+*.class
+.flattened-pom.xml
+dependency-reduced-pom.xml
+pom.xml.versionsBackup
+pom.xml.releaseBackup
+release.properties
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# ---------------------------------------------------------------------------
+# CAP generated artefacts
+#
+# The CDS build regenerates these on every `mvn install`: the cds.gen POJOs
+# under srv/src/gen, the EDMX exports and the H2 schema. Committing them would
+# only create merge conflicts.
+# ---------------------------------------------------------------------------
 **/gen/
 **/edmx/
+schema*.sql
+*.csn
+_out/
+
+# ---------------------------------------------------------------------------
+# Local databases
+#
+# The default H2 database is in memory, but the `persistent` profile writes a
+# file next to the build output.
+# ---------------------------------------------------------------------------
 *.db
+*.mv.db
+*.trace.db
+*.lock.db
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
-schema*.sql
-default-env.json
 
-**/bin/
-**/target/
-.flattened-pom.xml
+# ---------------------------------------------------------------------------
+# Credentials and local configuration
+#
+# The Kafka messages API is reached with a browser session cookie. It is only
+# ever held in memory at runtime, and nothing that carries one may be committed.
+# ---------------------------------------------------------------------------
+default-env.json
+.cdsrc-private.json
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+secrets.json
+credentials.json
+cookie.txt
+cookies.txt
+
+# ---------------------------------------------------------------------------
+# Node / npm
+# ---------------------------------------------------------------------------
+**/node_modules/
+**/node/
+.npm/
+.pnpm-store/
+.yarn/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---------------------------------------------------------------------------
+# Cloud Foundry / MTA deployment
+# ---------------------------------------------------------------------------
+**/.mta/
+mta_archives/
+mta-*.mtar
+*.mtar
+.cf/
+
+# ---------------------------------------------------------------------------
+# Logs, dumps and coverage
+# ---------------------------------------------------------------------------
+*.log
+logs/
+gc_history*
+hs_err_pid*
+replay_pid*
+*.hprof
+coverage/
+.nyc_output/
+jacoco.exec
+*.exec
+
+# ---------------------------------------------------------------------------
+# Editors and IDEs
+# ---------------------------------------------------------------------------
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
 .classpath
 .project
-.settings
-
-**/node/
-**/node_modules/
-
-**/.mta/
-*.mtar
-
-*.log*
-gc_history*
-hs_err*
-*.tgz
-*.iml
-
-.vscode
-.idea
+.settings/
+.factorypath
+.apt_generated/
+*.launch
+nbproject/
+nb-configuration.xml
 .reloadtrigger
+
+# ---------------------------------------------------------------------------
+# Operating system
+# ---------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.AppleDouble
+.LSOverride
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*~
+.directory
+
+# ---------------------------------------------------------------------------
+# Archives and temporary files
+# ---------------------------------------------------------------------------
+*.tgz
+*.tar.gz
+*.zip
+*.swp
+*.swo
+*.bak
+*.orig
+*.rej
