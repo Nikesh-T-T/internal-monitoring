@@ -1,6 +1,7 @@
 sap.ui.define([
 	"sap/fe/core/AppComponent",
-	"monitoring/CredentialDialog"
+	"monitoring/CredentialDialog",
+	"monitoring/ext/TimeWindowFilter"
 ], function (AppComponent, CredentialDialog) {
 	"use strict";
 

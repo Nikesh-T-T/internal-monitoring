@@ -1,0 +1,12 @@
+<core:FragmentDefinition
+	xmlns="sap.m"
+	xmlns:core="sap.ui.core">
+	<Select
+		id="timeWindowSelect"
+		width="100%">
+		<core:Item key="" text="{i18n>timeWindowNone}" />
+		<core:Item key="1" text="{i18n>timeWindow1min}" />
+		<core:Item key="5" text="{i18n>timeWindow5min}" />
+		<core:Item key="10" text="{i18n>timeWindow10min}" />
+	</Select>
+</core:FragmentDefinition>

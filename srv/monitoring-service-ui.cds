@@ -30,6 +30,11 @@ annotate MonitoringService.Messages with @(
         LineItem                 : [
             {
                 $Type: 'UI.DataField',
+                Value: messageTimestamp,
+                ![@UI.Importance]: #High
+            },
+            {
+                $Type: 'UI.DataField',
                 Value: serviceName,
                 ![@UI.Importance]: #High
             },

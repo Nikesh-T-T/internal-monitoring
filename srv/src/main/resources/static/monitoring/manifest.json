@@ -122,6 +122,19 @@
                       }
                     }
                   }
+                },
+                "@com.sap.vocabularies.UI.v1.SelectionFields": {
+                  "filterFields": {
+                    "timeWindow": {
+                      "label": "{i18n>timeWindowLabel}",
+                      "template": "monitoring.view.TimeWindowFilter",
+                      "position": {
+                        "placement": "After",
+                        "anchor": "tenantId"
+                      },
+                      "availability": "Default"
+                    }
+                  }
                 }
               }
             }
