@@ -159,4 +159,62 @@ class KafkaMessageParserTest {
 		assertThat(KafkaMessageParser.utf8Length("\u20ac")).isEqualTo(3);
 		assertThat(KafkaMessageParser.utf8Length("\uD83D\uDE00")).isEqualTo(4);
 	}
+
+	@Test
+	void extractsConversationIdFromASpanAttribute() {
+		String payload = """
+				{"payload":[{"resource":{"attributes":[]},"scopeSpans":[{"spans":[
+				  {"name":"s1","attributes":[
+				    {"key":"gen_ai.conversation.id","value":{"stringValue":"conv-42"}}]}]}]}]}
+				""";
+
+		assertThat(parser.readConversationId(payload)).isEqualTo("conv-42");
+	}
+
+	@Test
+	void takesTheConversationIdFromTheFirstSpanThatCarriesIt() {
+		String payload = """
+				{"payload":[{"scopeSpans":[{"spans":[
+				  {"name":"noConv","attributes":[
+				    {"key":"http.method","value":{"stringValue":"POST"}}]},
+				  {"name":"firstConv","attributes":[
+				    {"key":"gen_ai.conversation.id","value":{"stringValue":"conv-first"}}]},
+				  {"name":"secondConv","attributes":[
+				    {"key":"gen_ai.conversation.id","value":{"stringValue":"conv-second"}}]}]}]}]}
+				""";
+
+		assertThat(parser.readConversationId(payload)).isEqualTo("conv-first");
+	}
+
+	@Test
+	void returnsNoConversationIdWhenNoSpanCarriesIt() {
+		String payload = """
+				{"payload":[{"scopeSpans":[{"spans":[
+				  {"name":"s1","attributes":[
+				    {"key":"http.method","value":{"stringValue":"POST"}}]}]}]}]}
+				""";
+
+		assertThat(parser.readConversationId(payload)).isNull();
+	}
+
+	@Test
+	void returnsNoConversationIdWhenTheSpanBlockIsTruncated() {
+		String payload = "{\"payload\":[{\"resource\":{\"attributes\":[]},\"scopeSpans\":[{\"spans\":[{\"name\":\"s1\",\"attr";
+
+		assertThat(parser.readConversationId(payload)).isNull();
+	}
+
+	@Test
+	void mapsTheConversationIdOntoTheParsedRecord() throws IOException {
+		String response = """
+				[{"correlationId":"c1","partition":1,"offset":2,
+				  "payload":"{\\"payload\\":[{\\"scopeSpans\\":[{\\"spans\\":[{\\"name\\":\\"s1\\",\\"attributes\\":[{\\"key\\":\\"gen_ai.conversation.id\\",\\"value\\":{\\"stringValue\\":\\"conv-99\\"}}]}]}]}]}",
+				  "payloadSize":0,"properties":[]}]
+				""";
+		List<ParsedKafkaMessage> messages = new ArrayList<>();
+		parser.parse(new ByteArrayInputStream(response.getBytes(StandardCharsets.UTF_8)), TOPIC, messages::add);
+
+		assertThat(messages).hasSize(1);
+		assertThat(messages.get(0).conversationId()).isEqualTo("conv-99");
+	}
 }

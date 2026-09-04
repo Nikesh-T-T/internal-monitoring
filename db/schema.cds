@@ -34,6 +34,10 @@ entity KafkaMessages : cuid {
 
     correlationId    : String(64);
     messageId        : String(64);
+
+    /** `gen_ai.conversation.id` attribute of the first span that carries it. */
+    conversationId   : String(64);
+
     sourceId         : String(128);
     eventType        : String(64);
     messageType      : String(128);

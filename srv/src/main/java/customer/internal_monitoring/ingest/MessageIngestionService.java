@@ -195,6 +195,7 @@ public class MessageIngestionService {
 		row.setPayloadHash(message.payloadHash());
 		row.setCorrelationId(message.correlationId());
 		row.setMessageId(message.messageId());
+		row.setConversationId(message.conversationId());
 		row.setSourceId(message.sourceId());
 		row.setEventType(message.eventType());
 		row.setMessageType(message.messageType());

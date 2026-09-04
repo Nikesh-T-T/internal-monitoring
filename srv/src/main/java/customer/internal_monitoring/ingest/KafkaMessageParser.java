@@ -44,6 +44,9 @@ public class KafkaMessageParser {
 	static final String ATTR_APP_NAME = "cloudfoundry.app.name";
 	static final String UNKNOWN_SERVICE = "UNKNOWN";
 
+	/** Span attribute holding the conversation the message belongs to. */
+	static final String ATTR_CONVERSATION_ID = "gen_ai.conversation.id";
+
 	private static final int MAX_SERVICE_NAME = 255;
 	private static final int MAX_ID = 64;
 	private static final int MAX_SOURCE_ID = 128;
@@ -115,6 +118,7 @@ public class KafkaMessageParser {
 
 		Map<String, String> attributes = readResourceAttributes(payload);
 		String serviceName = resolveServiceName(attributes);
+		String conversationId = readConversationId(payload);
 		boolean truncated = payloadSize != null && payload != null && utf8Length(payload) < payloadSize;
 
 		String parseStatus;
@@ -132,6 +136,7 @@ public class KafkaMessageParser {
 				MessageHashes.payloadHash(payload),
 				truncate(correlationId, MAX_ID),
 				truncate(properties.get("messageId"), MAX_ID),
+				truncate(conversationId, MAX_ID),
 				truncate(sourceId, MAX_SOURCE_ID),
 				truncate(eventType, MAX_ID),
 				truncate(messageType, MAX_MESSAGE_TYPE),
@@ -250,6 +255,79 @@ public class KafkaMessageParser {
 			}
 		}
 		return value;
+	}
+
+	/**
+	 * Extracts the {@code gen_ai.conversation.id} span attribute from the payload.
+	 *
+	 * <p>The value is identical across every span of a message, so the first span
+	 * that carries it wins. Spans live under {@code payload[].scopeSpans[].spans[]}
+	 * and sit after the resource block, so a payload truncated by the API may not
+	 * reach them; in that case, and when no span carries the attribute, this
+	 * returns {@code null}.
+	 */
+	String readConversationId(String payload) {
+		if (payload == null || payload.isBlank()) {
+			return null;
+		}
+		try (JsonParser parser = factory.createParser(payload)) {
+			JsonToken token;
+			while ((token = parser.nextToken()) != null) {
+				if (token == JsonToken.FIELD_NAME && "spans".equals(parser.currentName())
+						&& parser.nextToken() == JsonToken.START_ARRAY) {
+					String found = readConversationIdFromSpans(parser);
+					if (found != null) {
+						return found;
+					}
+				}
+			}
+		} catch (IOException e) {
+			// Truncated or malformed payload: no conversation id recoverable.
+		}
+		return null;
+	}
+
+	/** Scans a {@code spans} array and returns the first conversation id found. */
+	private String readConversationIdFromSpans(JsonParser parser) throws IOException {
+		while (parser.nextToken() == JsonToken.START_OBJECT) {
+			while (parser.nextToken() != JsonToken.END_OBJECT) {
+				String field = parser.currentName();
+				parser.nextToken();
+				if ("attributes".equals(field) && parser.currentToken() == JsonToken.START_ARRAY) {
+					String value = readConversationIdFromAttributes(parser);
+					if (value != null) {
+						return value;
+					}
+				} else {
+					parser.skipChildren();
+				}
+			}
+		}
+		return null;
+	}
+
+	/** Returns the value of the conversation id key within one span's attributes. */
+	private String readConversationIdFromAttributes(JsonParser parser) throws IOException {
+		String conversationId = null;
+		while (parser.nextToken() == JsonToken.START_OBJECT) {
+			String key = null;
+			String value = null;
+			while (parser.nextToken() != JsonToken.END_OBJECT) {
+				String field = parser.currentName();
+				parser.nextToken();
+				if ("key".equals(field)) {
+					key = parser.getValueAsString();
+				} else if ("value".equals(field)) {
+					value = readAttributeValue(parser);
+				} else {
+					parser.skipChildren();
+				}
+			}
+			if (conversationId == null && ATTR_CONVERSATION_ID.equals(key)) {
+				conversationId = value;
+			}
+		}
+		return conversationId;
 	}
 
 	private String resolveServiceName(Map<String, String> attributes) {

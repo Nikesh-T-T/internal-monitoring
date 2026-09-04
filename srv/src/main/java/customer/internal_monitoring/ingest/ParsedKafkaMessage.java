@@ -11,6 +11,7 @@ public record ParsedKafkaMessage(
 		String payloadHash,
 		String correlationId,
 		String messageId,
+		String conversationId,
 		String sourceId,
 		String eventType,
 		String messageType,

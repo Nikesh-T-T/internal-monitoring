@@ -25,6 +25,7 @@ annotate MonitoringService.Messages with @(
         SelectionFields          : [
             serviceName,
             correlationId,
+            conversationId,
             tenantId
         ],
         LineItem                 : [
@@ -45,6 +46,11 @@ annotate MonitoringService.Messages with @(
             },
             {
                 $Type: 'UI.DataField',
+                Value: conversationId,
+                ![@UI.Importance]: #High
+            },
+            {
+                $Type: 'UI.DataField',
                 Value: tenantId,
                 ![@UI.Importance]: #High
             }
@@ -60,6 +66,7 @@ annotate MonitoringService.Messages with {
     payloadHash      @title: 'Payload Hash';
     correlationId    @title: 'Correlation ID';
     messageId        @title: 'Message ID';
+    conversationId   @title: 'Conversation ID';
     sourceId         @title: 'Source ID';
     eventType        @title: 'Event Type';
     messageType      @title: 'Message Type';
