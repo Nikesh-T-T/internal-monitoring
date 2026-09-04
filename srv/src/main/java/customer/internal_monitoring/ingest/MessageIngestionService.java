@@ -43,6 +43,9 @@ public class MessageIngestionService {
 
 	private static final Logger log = LoggerFactory.getLogger(MessageIngestionService.class);
 
+	/** Only messages from this service are persisted; the rest are dropped on intake. */
+	private static final String PERSISTED_SERVICE_NAME = "x-ai-orchagent-srv";
+
 	private final KafkaMessagesClient client;
 	private final KafkaMessageParser parser;
 	private final PersistenceService persistence;
@@ -122,6 +125,9 @@ public class MessageIngestionService {
 			counters.fetched = parser.parse(body, properties.getTopic(), message -> {
 				if (message.payload() == null) {
 					counters.failed++;
+					return;
+				}
+				if (!PERSISTED_SERVICE_NAME.equals(message.serviceName())) {
 					return;
 				}
 				if (!seenInThisRun.add(message.messageHash())) {

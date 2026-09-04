@@ -30,7 +30,6 @@ import com.sun.net.httpserver.HttpServer;
 
 import cds.gen.internal.monitoring.KafkaMessages;
 import cds.gen.internal.monitoring.KafkaMessages_;
-import cds.gen.internal.monitoring.ParseStatus;
 import customer.internal_monitoring.client.ApiCredentialStore;
 import customer.internal_monitoring.config.KafkaMonitoringProperties;
 import customer.internal_monitoring.ingest.IngestionState.IngestionOutcome;
@@ -109,19 +108,18 @@ class MessageIngestionIntegrationTest {
 	}
 
 	@Test
-	void storesEveryDistinctMessageWithItsServiceName() {
+	void storesOnlyTheOrchagentMessagesWithTheirServiceName() {
 		IngestionOutcome outcome = ingestionService.ingest();
 
 		assertThat(outcome.fetched()).isEqualTo(4);
-		assertThat(outcome.stored()).isEqualTo(4);
+		assertThat(outcome.stored()).isEqualTo(2);
 		assertThat(outcome.duplicates()).isZero();
 		assertThat(outcome.failed()).isZero();
 
 		List<KafkaMessages> stored = storedMessages();
-		// Ordered by Kafka offset: 12740892, 12740951, 12740999, 12741000.
+		// Only x-ai-orchagent-srv is persisted; ordered by Kafka offset.
 		assertThat(stored).extracting(KafkaMessages::getServiceName)
-				.containsExactly("x-ai-orchagent-srv", "x-landscape-srv-01a06656",
-						"x-ai-orchagent-srv", "ops-sum-pushreceiver-srv");
+				.containsExactly("x-ai-orchagent-srv", "x-ai-orchagent-srv");
 		assertThat(stored).allSatisfy(message -> {
 			assertThat(message.getId()).isNotBlank();
 			assertThat(message.getPayload()).isNotBlank();
@@ -137,9 +135,9 @@ class MessageIngestionIntegrationTest {
 
 		assertThat(second.fetched()).isEqualTo(4);
 		assertThat(second.stored()).isZero();
-		assertThat(second.duplicates()).isEqualTo(4);
-		assertThat(storedMessages()).hasSize(4);
-		assertThat(ingestionService.countStoredMessages()).isEqualTo(4);
+		assertThat(second.duplicates()).isEqualTo(2);
+		assertThat(storedMessages()).hasSize(2);
+		assertThat(ingestionService.countStoredMessages()).isEqualTo(2);
 	}
 
 	@Test
@@ -159,20 +157,6 @@ class MessageIngestionIntegrationTest {
 	}
 
 	@Test
-	void recordsTruncatedPayloadsWithoutLosingTheServiceName() {
-		ingestionService.ingest();
-
-		KafkaMessages truncated = storedMessages().stream()
-				.filter(message -> Boolean.TRUE.equals(message.getTruncated()))
-				.findFirst()
-				.orElseThrow();
-
-		assertThat(truncated.getServiceName()).isEqualTo("ops-sum-pushreceiver-srv");
-		assertThat(truncated.getParseStatus()).isEqualTo(ParseStatus.TRUNCATED);
-		assertThat(truncated.getPayloadSize()).isEqualTo(999999L);
-	}
-
-	@Test
 	void storesTheOriginalPayloadAndProperties() {
 		ingestionService.ingest();
 
@@ -187,12 +171,12 @@ class MessageIngestionIntegrationTest {
 	@Test
 	void purgeRemovesEverythingOlderThanTheRetentionPeriod() {
 		ingestionService.ingest();
-		assertThat(storedMessages()).hasSize(4);
+		assertThat(storedMessages()).hasSize(2);
 
 		// A zero length retention makes every stored message expired.
 		long deleted = withRetention(Duration.ZERO, ingestionService::purgeExpired);
 
-		assertThat(deleted).isEqualTo(4);
+		assertThat(deleted).isEqualTo(2);
 		assertThat(storedMessages()).isEmpty();
 	}
 

@@ -24,11 +24,8 @@ annotate MonitoringService.Messages with @(
         },
         SelectionFields          : [
             serviceName,
-            eventType,
-            messageType,
-            parseStatus,
-            messageTimestamp,
-            kafkaPartition
+            correlationId,
+            tenantId
         ],
         LineItem                 : [
             {
@@ -38,36 +35,13 @@ annotate MonitoringService.Messages with @(
             },
             {
                 $Type: 'UI.DataField',
-                Value: messageTimestamp,
+                Value: correlationId,
                 ![@UI.Importance]: #High
             },
             {
                 $Type: 'UI.DataField',
-                Value: eventType
-            },
-            {
-                $Type: 'UI.DataField',
-                Value: messageType
-            },
-            {
-                $Type: 'UI.DataField',
-                Value: kafkaPartition
-            },
-            {
-                $Type: 'UI.DataField',
-                Value: kafkaOffset
-            },
-            {
-                $Type: 'UI.DataField',
-                Value: payloadSize
-            },
-            {
-                $Type: 'UI.DataField',
-                Value: parseStatus
-            },
-            {
-                $Type: 'UI.DataField',
-                Value: ingestedAt
+                Value: tenantId,
+                ![@UI.Importance]: #High
             }
         ],
         Facets                   : [
