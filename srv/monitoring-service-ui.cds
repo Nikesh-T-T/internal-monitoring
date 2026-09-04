@@ -44,22 +44,7 @@ annotate MonitoringService.Messages with @(
                 ![@UI.Importance]: #High
             }
         ],
-        Facets                   : [
-            {
-                $Type : 'UI.ReferenceFacet',
-                ID    : 'PayloadFacet',
-                Label : 'Payload',
-                Target: '@UI.FieldGroup#Payload'
-            },
-            {
-                $Type : 'UI.ReferenceFacet',
-                ID    : 'HeadersFacet',
-                Label : 'Headers',
-                Target: '@UI.FieldGroup#Headers'
-            }
-        ],
-        FieldGroup #Payload      : {Data: [{Value: payload}]},
-        FieldGroup #Headers      : {Data: [{Value: properties}]}
+        Facets                   : []
     }
 );
 

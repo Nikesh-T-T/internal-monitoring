@@ -1,0 +1,28 @@
+<core:FragmentDefinition
+	xmlns="sap.m"
+	xmlns:core="sap.ui.core"
+	xmlns:code="sap.ui.codeeditor">
+
+	<VBox
+		class="sapUiSmallMargin"
+		fitContainer="true"
+		core:require="{Formatter: 'monitoring/ext/JsonFormatter'}">
+		<Toolbar>
+			<ToolbarSpacer />
+			<Button
+				text="{i18n>jsonFormat}"
+				icon="sap-icon://syntax"
+				press="Formatter.toggle" />
+		</Toolbar>
+		<code:CodeEditor
+			type="json"
+			editable="false"
+			height="40rem"
+			value="{path: 'payload', formatter: 'Formatter.format'}">
+			<code:customData>
+				<core:CustomData key="field" value="payload" />
+			</code:customData>
+		</code:CodeEditor>
+	</VBox>
+
+</core:FragmentDefinition>
