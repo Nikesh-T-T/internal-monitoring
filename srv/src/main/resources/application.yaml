@@ -25,8 +25,7 @@ monitoring:
       - ms.calm-dev-eu10-004.rum
     # Topics whose per-message export endpoint is unreliable: the export is skipped
     # and the truncated list payload is kept instead.
-    export-exempt-topics:
-      - ms.calm-dev-eu10-004.rum
+    export-exempt-topics: []
     enabled: true
     # A full poll transfers several megabytes; raise this if the API or the
     # database cannot keep up.
