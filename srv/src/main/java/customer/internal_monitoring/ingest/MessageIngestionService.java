@@ -120,18 +120,21 @@ public class MessageIngestionService {
 		Set<String> seenInThisRun = new HashSet<>();
 		List<ParsedKafkaMessage> buffer = new ArrayList<>(properties.getBatchSize());
 		Instant ingestedAt = Instant.now();
+		boolean filterByServiceName = !properties.getServiceNameFilterExemptTopics().contains(properties.getTopic());
+		boolean exportFullMessage = !properties.getExportExemptTopics().contains(properties.getTopic());
 
 		client.fetchMessages(body -> {
 			counters.fetched = parser.parse(body, properties.getTopic(), message -> {
 				ParsedKafkaMessage effective = message;
-				if (message.truncated() && message.kafkaPartition() != null && message.kafkaOffset() != null) {
+				if (exportFullMessage && message.truncated() && message.kafkaPartition() != null
+						&& message.kafkaOffset() != null) {
 					effective = fetchFullMessage(message);
 				}
 				if (effective.payload() == null) {
 					counters.failed++;
 					return;
 				}
-				if (!PERSISTED_SERVICE_NAME.equals(effective.serviceName())) {
+				if (filterByServiceName && !PERSISTED_SERVICE_NAME.equals(effective.serviceName())) {
 					return;
 				}
 				if (effective.conversationId() == null || effective.conversationId().isBlank()) {
@@ -242,20 +245,46 @@ public class MessageIngestionService {
 	}
 
 	/**
-	 * Deletes messages whose ingestion time is older than the retention period.
+	 * Deletes messages whose ingestion time is older than the retention period,
+	 * except those belonging to a retention-exempt topic, which are kept
+	 * indefinitely.
 	 *
 	 * @return the number of deleted rows
 	 */
 	public long purgeExpired() {
 		Instant cutoff = Instant.now().minus(properties.getRetention());
+		Set<String> exempt = properties.getRetentionExemptTopics();
 		Function<RequestContext, Long> run = context -> runtime.changeSetContext()
 				.run((Function<ChangeSetContext, Long>) changeSet -> (long) persistence
-						.run(Delete.from(KafkaMessages_.class)
-								.where(message -> message.ingestedAt().lt(cutoff)))
+						.run(exempt.isEmpty()
+								? Delete.from(KafkaMessages_.class)
+										.where(message -> message.ingestedAt().lt(cutoff))
+								: Delete.from(KafkaMessages_.class)
+										.where(message -> message.ingestedAt().lt(cutoff)
+												.and(CQL.not(message.topic().in(exempt)))))
 						.rowCount());
 		long deleted = runtime.requestContext().systemUser().run(run);
 		if (deleted > 0) {
 			log.info("Retention removed {} messages ingested before {}", deleted, cutoff);
+		}
+		return deleted;
+	}
+
+	/**
+	 * Deletes every stored message of the given topic. Used when the dashboard
+	 * switches topics so only the active topic's data remains.
+	 *
+	 * @return the number of deleted rows
+	 */
+	public long purgeTopic(String topic) {
+		Function<RequestContext, Long> run = context -> runtime.changeSetContext()
+				.run((Function<ChangeSetContext, Long>) changeSet -> (long) persistence
+						.run(Delete.from(KafkaMessages_.class)
+								.where(message -> message.topic().eq(topic)))
+						.rowCount());
+		long deleted = runtime.requestContext().systemUser().run(run);
+		if (deleted > 0) {
+			log.info("Purged {} messages of topic {}", deleted, topic);
 		}
 		return deleted;
 	}

@@ -87,17 +87,20 @@ public class KafkaMessageParser {
 	/**
 	 * Reads a message exported by the per-message export endpoint.
 	 *
-	 * <p>The export archive delivers the record split across two entries: a
+	 * <p>Two archive layouts are supported. Some topics split the record across a
 	 * properties entry wrapping the metadata in
-	 * {@code {"topic": ..., "message": { ...record without payload... }}}, and a
-	 * separate payload entry holding the full, untruncated payload as raw JSON.
-	 * The metadata is parsed like a list-endpoint record, and the separately read
-	 * {@code fullPayload} overrides the (absent) inline payload so the service
-	 * name, conversation id, hashes and parse status are recomputed from the
-	 * complete payload.
+	 * {@code {"topic": ..., "message": { ...record without payload... }}} and a
+	 * separate payload entry with the full, untruncated payload; there
+	 * {@code fullPayload} is non-null and overrides the (absent) inline payload.
+	 * Other topics deliver a single entry with the same
+	 * {@code {"topic": ..., "message": { ...record incl. payload... }}} wrapper but
+	 * the full payload already inline; there {@code fullPayload} is {@code null} and
+	 * the inline {@code message.payload} is used as is. Either way the service name,
+	 * conversation id, hashes and parse status are computed from the full payload.
 	 *
-	 * @param properties  the {@code _properties.json} entry
-	 * @param fullPayload the raw contents of the {@code _payload.json} entry
+	 * @param properties  the metadata entry ({@code {topic, message}} wrapper)
+	 * @param fullPayload the full payload from a separate archive entry, or
+	 *                    {@code null} when it is already inline in {@code message}
 	 * @throws IOException if the properties entry does not contain a {@code message} object
 	 */
 	public ParsedKafkaMessage parseExportedMessage(InputStream properties, String fullPayload, String topic)

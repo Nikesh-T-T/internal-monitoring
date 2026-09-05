@@ -33,6 +33,10 @@ service MonitoringService {
             pollIntervalSeconds : Integer;
             retention           : String(32);
             endpoint            : String(1024);
+            /** The topic ingestion is currently polling. */
+            activeTopic         : String(255);
+            /** Topics offered by the dashboard topic switcher. */
+            selectableTopics    : many String(255);
             lastRunAt           : Timestamp;
             lastSuccessAt       : Timestamp;
             lastDurationMillis  : Int64;
@@ -72,6 +76,12 @@ service MonitoringService {
 
     /** Runs one ingestion cycle immediately and reports what it did. */
     action triggerIngestion()                                              returns IngestionResult;
+
+    /**
+     * Switches the polled Kafka topic and purges the previously monitored
+     * topic's messages so only the active topic's data remains.
+     */
+    action setTopic(topic : String @mandatory)                             returns String;
 
     /** Deletes messages older than the configured retention period. */
     action purgeExpiredMessages()                                          returns Integer;

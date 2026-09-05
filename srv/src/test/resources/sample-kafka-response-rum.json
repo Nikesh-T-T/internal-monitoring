@@ -1,0 +1,32 @@
+[
+  {
+    "correlationId": "22222222-2222-2222-2222-222222222222",
+    "sourceId": "x-calm-app2app-router",
+    "eventType": "data",
+    "messageType": "calm-usecase-message",
+    "timestamp": 1788431883228,
+    "partition": 7,
+    "offset": 22000001,
+    "payload": "{\"payload\":[{\"resource\":{\"attributes\":[{\"key\":\"sap.service.display_name\",\"value\":{\"stringValue\":\"x-some-other-srv\"}},{\"key\":\"service.name\",\"value\":{\"stringValue\":\"other-srv-instance\"}}]},\"scopeSpans\":[{\"scope\":{\"name\":\"demo.scope\",\"version\":\"1.0.0\"},\"spans\":[{\"traceId\":\"AAAAAAAAAAAAAAAAAAAAAA==\",\"spanId\":\"AAAAAAAAAAA=\",\"name\":\"POST\",\"kind\":\"SPAN_KIND_SERVER\",\"attributes\":[{\"key\":\"gen_ai.conversation.id\",\"value\":{\"stringValue\":\"c3d4e5f6-a7b8-9012-cdef-123456789012\"}}],\"status\":{}}]}]}]}",
+    "payloadSize": 400,
+    "headersSize": 100,
+    "properties": [
+      { "key": "tenantId", "value": "00000000-0000-0000-0000-000000000002" }
+    ]
+  },
+  {
+    "correlationId": "33333333-3333-3333-3333-333333333333",
+    "sourceId": "x-calm-app2app-router",
+    "eventType": "data",
+    "messageType": "calm-usecase-message",
+    "timestamp": 1788431883229,
+    "partition": 7,
+    "offset": 22000002,
+    "payload": "{\"payload\":[{\"resource\":{\"attributes\":[{\"key\":\"sap.service.display_name\",\"value\":{\"stringValue\":\"x-yet-another-srv\"}},{\"key\":\"service.name\",\"value\":{\"stringValue\":\"yet-another-instance\"}}]},\"scopeSpans\":[{\"scope\":{\"name\":\"demo.scope\",\"version\":\"1.0.0\"},\"spans\":[{\"traceId\":\"AAAAAAAAAAAAAAAAAAAAAA==\",\"spanId\":\"AAAAAAAAAAA=\",\"name\":\"POST\",\"kind\":\"SPAN_KIND_SERVER\",\"attributes\":[{\"key\":\"http.request.method\",\"value\":{\"stringValue\":\"POST\"}}],\"status\":{}}]}]}]}",
+    "payloadSize": 380,
+    "headersSize": 100,
+    "properties": [
+      { "key": "tenantId", "value": "00000000-0000-0000-0000-000000000002" }
+    ]
+  }
+]

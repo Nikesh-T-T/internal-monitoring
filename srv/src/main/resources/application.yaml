@@ -17,6 +17,23 @@ monitoring:
     endpoint: https://hermes-calm-dev-eu10-004.cfapps.eu10-004.hana.ondemand.com/v2/usecase/calm-dev-eu10-004/kafka/ms.calm-dev-eu10-004.internal-monitoring/messages
     # Stored with every message so several topics can be told apart later.
     topic: ms.calm-dev-eu10-004.internal-monitoring
+    # Topics offered by the dashboard topic switcher. The topic name is also the
+    # path segment in 'endpoint' (.../kafka/<topic>/messages), so switching swaps it.
+    selectable-topics:
+      - ms.calm-dev-eu10-004.internal-monitoring
+      - ms.calm-dev-eu10-004.rum
+    # Topics exempt from the age-based retention sweep; their messages are kept
+    # indefinitely (until a topic switch purges them).
+    retention-exempt-topics:
+      - ms.calm-dev-eu10-004.rum
+    # Topics for which messages of every service are stored, not only the default
+    # 'x-ai-orchagent-srv'. The conversation-id filter still applies to all topics.
+    service-name-filter-exempt-topics:
+      - ms.calm-dev-eu10-004.rum
+    # Topics whose per-message export endpoint is unreliable: the export is skipped
+    # and the truncated list payload is kept instead.
+    export-exempt-topics:
+      - ms.calm-dev-eu10-004.rum
     enabled: true
     # A full poll transfers several megabytes; raise this if the API or the
     # database cannot keep up.

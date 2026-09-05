@@ -35,8 +35,9 @@ public class KafkaMessagesClient {
 	}
 
 	/**
-	 * Consumes the two entries of an export archive: the properties entry as a
-	 * stream and the full payload entry already read into a string.
+	 * Consumes the properties/metadata entry of an export archive as a stream and
+	 * the full payload as a string. The payload is {@code null} for single-entry
+	 * archives that carry the full payload inline in the metadata's {@code message}.
 	 */
 	@FunctionalInterface
 	public interface ExportReader<T> {
@@ -142,22 +143,34 @@ public class KafkaMessagesClient {
 	 * Splits the export archive into its properties and payload entries and hands
 	 * both to {@code reader}.
 	 *
-	 * <p>The archive holds two entries sharing a {@code data-<ts>} prefix: one
-	 * ending in {@code _properties.json} (the record metadata) and one ending in
-	 * {@code _payload.json} (the full untruncated payload). Entries are matched by
-	 * name so their order in the archive does not matter.
+	 * <p>Two layouts occur across topics. The two-entry layout holds a
+	 * {@code _properties.json} entry (record metadata) and a {@code _payload.json}
+	 * entry (the full untruncated payload); both are matched by name so their order
+	 * does not matter, and the payload is passed as {@code fullPayload}. The
+	 * single-entry layout holds one {@code data-<ts>.json} entry that already
+	 * carries the full payload inline in its {@code message} object; that entry is
+	 * passed as the properties stream with a {@code null} {@code fullPayload}, so
+	 * the reader uses the inline payload.
 	 */
 	private <T> T readExportArchive(ZipInputStream zip, ExportReader<T> reader, int status) throws IOException {
 		byte[] properties = null;
+		byte[] combined = null;
 		String payload = null;
+		int entryCount = 0;
 		ZipEntry entry;
 		while ((entry = zip.getNextEntry()) != null) {
+			entryCount++;
 			String name = entry.getName();
 			if (name.endsWith("_payload.json")) {
 				payload = new String(zip.readAllBytes(), StandardCharsets.UTF_8);
 			} else if (name.endsWith("_properties.json")) {
 				properties = zip.readAllBytes();
+			} else {
+				combined = zip.readAllBytes();
 			}
+		}
+		if (properties == null && combined != null && entryCount == 1) {
+			return reader.read(new ByteArrayInputStream(combined), null);
 		}
 		if (properties == null) {
 			throw new KafkaApiException("Kafka export archive did not contain a properties entry", status);

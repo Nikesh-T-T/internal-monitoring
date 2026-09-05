@@ -242,6 +242,26 @@ class KafkaMessageParserTest {
 	}
 
 	@Test
+	void usesTheInlinePayloadOfAnExportedRecordWhenNoSeparatePayloadIsGiven() throws IOException {
+		String inlinePayload = "{\\\"payload\\\":[{\\\"resource\\\":{\\\"attributes\\\":"
+				+ "[{\\\"key\\\":\\\"sap.service.display_name\\\",\\\"value\\\":{\\\"stringValue\\\":\\\"x-some-other-srv\\\"}}]},"
+				+ "\\\"scopeSpans\\\":[{\\\"spans\\\":[{\\\"name\\\":\\\"s1\\\",\\\"attributes\\\":"
+				+ "[{\\\"key\\\":\\\"gen_ai.conversation.id\\\",\\\"value\\\":{\\\"stringValue\\\":\\\"conv-inline\\\"}}]}]}]}]}";
+		String combined = "{\"topic\":\"t\",\"message\":{\"correlationId\":\"c1\",\"partition\":2,\"offset\":42,"
+				+ "\"payloadSize\":0,\"properties\":[],\"payload\":\"" + inlinePayload + "\"}}";
+
+		ParsedKafkaMessage message = parser.parseExportedMessage(
+				new ByteArrayInputStream(combined.getBytes(StandardCharsets.UTF_8)), null, TOPIC);
+
+		assertThat(message.serviceName()).isEqualTo("x-some-other-srv");
+		assertThat(message.conversationId()).isEqualTo("conv-inline");
+		assertThat(message.kafkaPartition()).isEqualTo(2);
+		assertThat(message.kafkaOffset()).isEqualTo(42L);
+		assertThat(message.payload()).contains("x-some-other-srv");
+		assertThat(message.topic()).isEqualTo(TOPIC);
+	}
+
+	@Test
 	void rejectsAnExportedResponseWithoutAMessageObject() {
 		String properties = "{\"topic\":\"t\"}";
 

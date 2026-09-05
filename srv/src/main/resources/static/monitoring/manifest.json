@@ -112,6 +112,15 @@
               "controlConfiguration": {
                 "@com.sap.vocabularies.UI.v1.LineItem": {
                   "actions": {
+                    "switchTopic": {
+                      "id": "switchTopicAction",
+                      "text": "{i18n>switchTopicAction}",
+                      "press": "monitoring.ext.TopicActions.openTopicSwitcher",
+                      "enabled": true,
+                      "position": {
+                        "placement": "Before"
+                      }
+                    },
                     "setCredentials": {
                       "id": "setCredentialsAction",
                       "text": "{i18n>credentialActionText}",

@@ -21,6 +21,7 @@ import cds.gen.monitoringservice.IngestionStatus_;
 import cds.gen.monitoringservice.MonitoringService_;
 import cds.gen.monitoringservice.PurgeExpiredMessagesContext;
 import cds.gen.monitoringservice.SetCredentialsContext;
+import cds.gen.monitoringservice.SetTopicContext;
 import cds.gen.monitoringservice.TriggerIngestionContext;
 import customer.internal_monitoring.client.ApiCredentialStore;
 import customer.internal_monitoring.client.CurlCommandParser;
@@ -143,6 +144,32 @@ public class MonitoringServiceHandler implements EventHandler {
 		context.setCompleted();
 	}
 
+	@On(event = SetTopicContext.CDS_NAME)
+	public void setTopic(SetTopicContext context) {
+		String requested = context.getTopic();
+		if (!properties.getSelectableTopics().contains(requested)) {
+			throw new ServiceException(ErrorStatuses.BAD_REQUEST,
+					"Unknown topic '" + requested + "'. Choose one of: "
+							+ String.join(", ", properties.getSelectableTopics()));
+		}
+
+		String previous = properties.getTopic();
+		if (!requested.equals(previous)) {
+			try {
+				properties.switchTopic(requested);
+			} catch (IllegalArgumentException e) {
+				throw new ServiceException(ErrorStatuses.BAD_REQUEST, e.getMessage());
+			}
+			long purged = ingestionService.purgeTopic(previous);
+			state.clearAuthenticationFailure();
+			log.info("Switched topic {} -> {}; purged {} messages of the previous topic",
+					previous, requested, purged);
+		}
+
+		context.setResult("Now monitoring " + requested + ".");
+		context.setCompleted();
+	}
+
 	/**
 	 * Serves the non-persisted {@code IngestionStatus} entity from the running
 	 * poller.
@@ -158,6 +185,8 @@ public class MonitoringServiceHandler implements EventHandler {
 		status.setPollIntervalSeconds(Math.toIntExact(properties.getPollInterval().toSeconds()));
 		status.setRetention(properties.getRetention().toString());
 		status.setEndpoint(properties.getEndpoint());
+		status.setActiveTopic(properties.getTopic());
+		status.setSelectableTopics(properties.getSelectableTopics());
 		status.setLastRunAt(state.getLastRunAt());
 		status.setLastSuccessAt(state.getLastSuccessAt());
 		status.setLastError(truncate(state.getLastError(), 1024));

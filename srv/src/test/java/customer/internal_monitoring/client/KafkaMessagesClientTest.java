@@ -269,6 +269,32 @@ class KafkaMessagesClientTest {
 	}
 
 	@Test
+	void exportsASingleEntryArchiveByPassingTheCombinedEntryWithoutASeparatePayload() throws IOException {
+		String combined = "{\"topic\":\"t\",\"message\":{\"offset\":42,\"payload\":\"full\"}}";
+		server.createContext("/export-message", exchange -> {
+			ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+			try (ZipOutputStream zip = new ZipOutputStream(buffer)) {
+				zip.putNextEntry(new ZipEntry("data-1788614570233.json"));
+				zip.write(combined.getBytes(StandardCharsets.UTF_8));
+				zip.closeEntry();
+			}
+			byte[] archive = buffer.toByteArray();
+			exchange.sendResponseHeaders(200, archive.length);
+			try (var out = exchange.getResponseBody()) {
+				out.write(archive);
+			}
+			exchange.close();
+		});
+		credentials.update(COOKIE, "xsrf-1");
+
+		String[] seen = client().exportMessage(2, 42L,
+				(props, fullPayload) -> new String[] { read(props), fullPayload });
+
+		assertThat(seen[0]).isEqualTo(combined);
+		assertThat(seen[1]).isNull();
+	}
+
+	@Test
 	void reportsExportErrorStatuses() {
 		server.createContext("/export-message", exchange -> {
 			byte[] payload = "boom".getBytes(StandardCharsets.UTF_8);

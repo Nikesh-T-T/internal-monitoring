@@ -23,9 +23,14 @@ sap.ui.define([
 	 * delivered by the service and an indented copy. The editor's value is not
 	 * bound to the read-only entity; it is filled from the binding context, so
 	 * changing it here never writes back to the model.
+	 *
+	 * The toggle direction is derived from the editor's current value rather than
+	 * a remembered flag: the flexible column layout reuses the same CodeEditor
+	 * across rows, so a flag set while formatting one row would still be set when
+	 * a different row is opened, requiring a wasted first click to clear it.
 	 */
 	return {
-		/** Seeds the editor from its bound row and remembers the raw string. */
+		/** Seeds the editor from its bound row. */
 		format: function (value) {
 			return value == null ? "" : String(value);
 		},
@@ -38,10 +43,10 @@ sap.ui.define([
 			}
 
 			var raw = rawValue(editor);
+			var showingRaw = editor.getValue() === raw;
 
-			if (editor.data("formatted") === true) {
+			if (!showingRaw) {
 				editor.setValue(raw);
-				editor.data("formatted", false);
 				button.setIcon("sap-icon://syntax");
 				button.setType("Default");
 				return;
@@ -49,7 +54,6 @@ sap.ui.define([
 
 			try {
 				editor.setValue(JSON.stringify(JSON.parse(raw), null, 2));
-				editor.data("formatted", true);
 				button.setIcon("sap-icon://source-code");
 				button.setType("Emphasized");
 			} catch (error) {

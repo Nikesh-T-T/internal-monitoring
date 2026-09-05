@@ -2,7 +2,10 @@ package customer.internal_monitoring.config;
 
 import java.time.Duration;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -22,6 +25,21 @@ public class KafkaMonitoringProperties {
 
 	/** Logical topic name stored with every message. */
 	private String topic;
+
+	/** Topics the dashboard offers for switching. */
+	private List<String> selectableTopics = new java.util.ArrayList<>();
+
+	/** Topics exempt from the age-based retention sweep; their messages are kept indefinitely. */
+	private Set<String> retentionExemptTopics = new LinkedHashSet<>();
+
+	/** Topics for which every service's messages are stored, not only the default service. */
+	private Set<String> serviceNameFilterExemptTopics = new LinkedHashSet<>();
+
+	/**
+	 * Topics for which the per-message export is skipped and the truncated list
+	 * payload is kept. Used when a topic's export endpoint is unreliable.
+	 */
+	private Set<String> exportExemptTopics = new LinkedHashSet<>();
 
 	/** Enables the scheduled poller. */
 	private boolean enabled = true;
@@ -70,6 +88,64 @@ public class KafkaMonitoringProperties {
 
 	public void setTopic(String topic) {
 		this.topic = topic;
+	}
+
+	/**
+	 * Re-points ingestion at another topic. The topic name appears verbatim as a
+	 * path segment in {@link #endpoint} ({@code .../kafka/<topic>/messages}), so the
+	 * endpoint's segment is swapped in step with the topic; the export URL derives
+	 * from the endpoint and follows automatically.
+	 *
+	 * @throws IllegalArgumentException if the endpoint does not contain the current
+	 *                                  topic segment, which would leave endpoint and
+	 *                                  topic inconsistent
+	 */
+	public void switchTopic(String newTopic) {
+		String oldTopic = this.topic;
+		if (oldTopic != null && !oldTopic.equals(newTopic)) {
+			String marker = "/kafka/" + oldTopic + "/";
+			if (endpoint == null || !endpoint.contains(marker)) {
+				throw new IllegalArgumentException(
+						"Cannot switch topic: 'monitoring.kafka.endpoint' does not contain the segment '"
+								+ marker + "'");
+			}
+			this.endpoint = endpoint.replace(marker, "/kafka/" + newTopic + "/");
+		}
+		this.topic = newTopic;
+	}
+
+	public List<String> getSelectableTopics() {
+		return selectableTopics;
+	}
+
+	public void setSelectableTopics(List<String> selectableTopics) {
+		this.selectableTopics = selectableTopics == null ? new java.util.ArrayList<>() : selectableTopics;
+	}
+
+	public Set<String> getRetentionExemptTopics() {
+		return retentionExemptTopics;
+	}
+
+	public void setRetentionExemptTopics(Set<String> retentionExemptTopics) {
+		this.retentionExemptTopics = retentionExemptTopics == null ? new LinkedHashSet<>() : retentionExemptTopics;
+	}
+
+	public Set<String> getServiceNameFilterExemptTopics() {
+		return serviceNameFilterExemptTopics;
+	}
+
+	public void setServiceNameFilterExemptTopics(Set<String> serviceNameFilterExemptTopics) {
+		this.serviceNameFilterExemptTopics = serviceNameFilterExemptTopics == null
+				? new LinkedHashSet<>()
+				: serviceNameFilterExemptTopics;
+	}
+
+	public Set<String> getExportExemptTopics() {
+		return exportExemptTopics;
+	}
+
+	public void setExportExemptTopics(Set<String> exportExemptTopics) {
+		this.exportExemptTopics = exportExemptTopics == null ? new LinkedHashSet<>() : exportExemptTopics;
 	}
 
 	public boolean isEnabled() {

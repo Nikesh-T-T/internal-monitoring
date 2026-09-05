@@ -1,0 +1,17 @@
+[
+  {
+    "correlationId": "44444444-4444-4444-4444-444444444444",
+    "sourceId": "x-calm-app2app-router",
+    "eventType": "data",
+    "messageType": "calm-usecase-message",
+    "timestamp": 1788431883230,
+    "partition": 6,
+    "offset": 12842068,
+    "payload": "{\"payload\":[{\"resource\":{\"attributes\":[{\"key\":\"sap.service.display_name\",\"value\":{\"stringValue\":\"x-some-other-srv\"}}]},\"scopeSpans\":[{\"spans\":[{\"attributes\":[{\"key\":\"gen_ai.conversation.id\",\"value\":{\"stringValue\":\"d4e5f6a7-b8c9-0123-defa-234567890123\"}}]}]}]}]}",
+    "payloadSize": 999999,
+    "headersSize": 100,
+    "properties": [
+      { "key": "tenantId", "value": "00000000-0000-0000-0000-000000000002" }
+    ]
+  }
+]

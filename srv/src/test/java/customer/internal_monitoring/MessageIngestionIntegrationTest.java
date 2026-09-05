@@ -7,7 +7,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
@@ -22,6 +25,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 import com.sap.cds.ql.Delete;
+import com.sap.cds.ql.Insert;
 import com.sap.cds.ql.Select;
 import com.sap.cds.services.persistence.PersistenceService;
 import com.sap.cds.services.request.RequestContext;
@@ -61,20 +65,25 @@ class MessageIngestionIntegrationTest {
 	@BeforeAll
 	static void startStubApi() throws IOException {
 		server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-		server.createContext("/messages", exchange -> {
-			byte[] body;
-			try (InputStream fixture = MessageIngestionIntegrationTest.class
-					.getResourceAsStream("/sample-kafka-response.json")) {
-				body = fixture.readAllBytes();
-			}
-			exchange.getResponseHeaders().add("Content-Type", "application/json");
-			exchange.sendResponseHeaders(200, body.length);
-			try (var out = exchange.getResponseBody()) {
-				out.write(body);
-			}
-			exchange.close();
-		});
+		server.createContext("/messages", exchange -> serveFixture(exchange, "/sample-kafka-response.json"));
+		server.createContext("/rum-messages", exchange -> serveFixture(exchange, "/sample-kafka-response-rum.json"));
+		server.createContext("/rum-truncated-messages",
+				exchange -> serveFixture(exchange, "/sample-kafka-response-rum-truncated.json"));
 		server.start();
+	}
+
+	private static void serveFixture(com.sun.net.httpserver.HttpExchange exchange, String resource)
+			throws IOException {
+		byte[] body;
+		try (InputStream fixture = MessageIngestionIntegrationTest.class.getResourceAsStream(resource)) {
+			body = fixture.readAllBytes();
+		}
+		exchange.getResponseHeaders().add("Content-Type", "application/json");
+		exchange.sendResponseHeaders(200, body.length);
+		try (var out = exchange.getResponseBody()) {
+			out.write(body);
+		}
+		exchange.close();
 	}
 
 	@AfterAll
@@ -105,6 +114,19 @@ class MessageIngestionIntegrationTest {
 				.run(Select.from(KafkaMessages_.class).orderBy(message -> message.kafkaOffset().asc()))
 				.listOf(KafkaMessages.class);
 		return runtime.requestContext().systemUser().run(select);
+	}
+
+	/** Inserts a bare message row for the given topic so purge behaviour can be asserted. */
+	private void insertMessage(String topic) {
+		KafkaMessages row = KafkaMessages.create();
+		row.setId(UUID.randomUUID().toString());
+		row.setTopic(topic);
+		row.setServiceName("x-ai-orchagent-srv");
+		row.setMessageHash(UUID.randomUUID().toString());
+		row.setPayloadHash(UUID.randomUUID().toString());
+		row.setIngestedAt(Instant.now());
+		Consumer<RequestContext> insert = context -> persistence.run(Insert.into(KafkaMessages_.class).entry(row));
+		runtime.requestContext().systemUser().run(insert);
 	}
 
 	@Test
@@ -189,11 +211,109 @@ class MessageIngestionIntegrationTest {
 	}
 
 	@Test
+	void purgeKeepsMessagesOfRetentionExemptTopics() {
+		insertMessage("ms.demo.rum");
+		insertMessage("ms.demo.internal-monitoring");
+
+		Set<String> originalExempt = monitoringProperties.getRetentionExemptTopics();
+		monitoringProperties.setRetentionExemptTopics(Set.of("ms.demo.rum"));
+		try {
+			// A zero length retention would otherwise expire every stored message.
+			long deleted = withRetention(Duration.ZERO, ingestionService::purgeExpired);
+
+			assertThat(deleted).isEqualTo(1);
+			assertThat(storedMessages()).extracting(KafkaMessages::getTopic)
+					.containsExactly("ms.demo.rum");
+		} finally {
+			monitoringProperties.setRetentionExemptTopics(originalExempt);
+		}
+	}
+
+	@Test
+	void purgeTopicRemovesOnlyTheNamedTopic() {
+		insertMessage("ms.demo.rum");
+		insertMessage("ms.demo.rum");
+		insertMessage("ms.demo.internal-monitoring");
+
+		long deleted = ingestionService.purgeTopic("ms.demo.rum");
+
+		assertThat(deleted).isEqualTo(2);
+		assertThat(storedMessages()).extracting(KafkaMessages::getTopic)
+				.containsExactly("ms.demo.internal-monitoring");
+	}
+
+	@Test
 	void failsClearlyWhenCredentialsAreMissing() {
 		credentials.clear();
 
 		assertThatThrownBy(() -> ingestionService.ingest())
 				.hasMessageContaining("No API credentials configured");
+	}
+
+	@Test
+	void storesEveryServiceButStillRequiresAConversationIdOnFilterExemptTopics() {
+		String rumEndpoint = "http://127.0.0.1:" + server.getAddress().getPort() + "/rum-messages";
+		String rumTopic = "ms.demo.rum";
+
+		String originalEndpoint = monitoringProperties.getEndpoint();
+		String originalTopic = monitoringProperties.getTopic();
+		Set<String> originalExempt = monitoringProperties.getServiceNameFilterExemptTopics();
+
+		monitoringProperties.setEndpoint(rumEndpoint);
+		monitoringProperties.setTopic(rumTopic);
+		monitoringProperties.setServiceNameFilterExemptTopics(Set.of(rumTopic));
+		try {
+			IngestionOutcome outcome = ingestionService.ingest();
+
+			// Two non-orchagent messages are fetched; the service-name filter is lifted,
+			// but the message without a conversation id is still skipped.
+			assertThat(outcome.fetched()).isEqualTo(2);
+			assertThat(outcome.stored()).isEqualTo(1);
+
+			List<KafkaMessages> stored = storedMessages();
+			assertThat(stored).extracting(KafkaMessages::getServiceName)
+					.containsExactly("x-some-other-srv");
+			assertThat(stored).allSatisfy(
+					message -> assertThat(message.getConversationId()).isNotBlank());
+		} finally {
+			monitoringProperties.setServiceNameFilterExemptTopics(originalExempt);
+			monitoringProperties.setTopic(originalTopic);
+			monitoringProperties.setEndpoint(originalEndpoint);
+		}
+	}
+
+	@Test
+	void skipsTheFullMessageExportForExportExemptTopics() {
+		String truncatedEndpoint = "http://127.0.0.1:" + server.getAddress().getPort() + "/rum-truncated-messages";
+		String rumTopic = "ms.demo.rum";
+
+		String originalEndpoint = monitoringProperties.getEndpoint();
+		String originalTopic = monitoringProperties.getTopic();
+		Set<String> originalServiceExempt = monitoringProperties.getServiceNameFilterExemptTopics();
+		Set<String> originalExportExempt = monitoringProperties.getExportExemptTopics();
+
+		monitoringProperties.setEndpoint(truncatedEndpoint);
+		monitoringProperties.setTopic(rumTopic);
+		monitoringProperties.setServiceNameFilterExemptTopics(Set.of(rumTopic));
+		monitoringProperties.setExportExemptTopics(Set.of(rumTopic));
+		try {
+			IngestionOutcome outcome = ingestionService.ingest();
+
+			assertThat(outcome.fetched()).isEqualTo(1);
+			assertThat(outcome.stored()).isEqualTo(1);
+
+			KafkaMessages stored = storedMessages().get(0);
+			// The message is kept with its truncated list payload; no export was attempted.
+			assertThat(stored.getTruncated()).isTrue();
+			assertThat(stored.getServiceName()).isEqualTo("x-some-other-srv");
+			assertThat(stored.getConversationId()).isEqualTo("d4e5f6a7-b8c9-0123-defa-234567890123");
+			assertThat(stored.getPayload()).contains("x-some-other-srv");
+		} finally {
+			monitoringProperties.setExportExemptTopics(originalExportExempt);
+			monitoringProperties.setServiceNameFilterExemptTopics(originalServiceExempt);
+			monitoringProperties.setTopic(originalTopic);
+			monitoringProperties.setEndpoint(originalEndpoint);
+		}
 	}
 
 	/** Runs an action with a temporarily different retention period. */
