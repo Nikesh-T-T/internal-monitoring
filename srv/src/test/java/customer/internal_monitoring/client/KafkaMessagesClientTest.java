@@ -73,22 +73,29 @@ class KafkaMessagesClientTest {
 		});
 	}
 
-	/** Serves {@code /export-message} with the given JSON packed into a ZIP archive. */
-	private void respondWithZippedExport(int status, String json) {
+	/**
+	 * Serves {@code /export-message} with a ZIP archive holding the two entries the
+	 * real endpoint returns: {@code _properties.json} (metadata) and
+	 * {@code _payload.json} (the full payload).
+	 */
+	private void respondWithZippedExport(int status, String properties, String payload) {
 		server.createContext("/export-message", exchange -> {
 			lastRequestHeaders.set(exchange.getRequestHeaders());
 			lastRequestMethod.set(exchange.getRequestMethod());
 			lastRequestUri.set(exchange.getRequestURI().toString());
 			ByteArrayOutputStream buffer = new ByteArrayOutputStream();
 			try (ZipOutputStream zip = new ZipOutputStream(buffer)) {
-				zip.putNextEntry(new ZipEntry("data-1.json"));
-				zip.write(json.getBytes(StandardCharsets.UTF_8));
+				zip.putNextEntry(new ZipEntry("data-1_properties.json"));
+				zip.write(properties.getBytes(StandardCharsets.UTF_8));
+				zip.closeEntry();
+				zip.putNextEntry(new ZipEntry("data-1_payload.json"));
+				zip.write(payload.getBytes(StandardCharsets.UTF_8));
 				zip.closeEntry();
 			}
-			byte[] payload = buffer.toByteArray();
-			exchange.sendResponseHeaders(status, payload.length);
+			byte[] archive = buffer.toByteArray();
+			exchange.sendResponseHeaders(status, archive.length);
 			try (var out = exchange.getResponseBody()) {
-				out.write(payload);
+				out.write(archive);
 			}
 			exchange.close();
 		});
@@ -193,18 +200,72 @@ class KafkaMessagesClientTest {
 	}
 
 	@Test
-	void exportsAMessageByUnwrappingTheZipArchive() {
-		String json = "{\"topic\":\"t\",\"message\":{\"offset\":42}}";
-		respondWithZippedExport(200, json);
+	void exportsAMessageByUnwrappingTheZipArchive() throws IOException {
+		String properties = "{\"topic\":\"t\",\"message\":{\"offset\":42}}";
+		String payload = "{\"payload\":[{\"resource\":{\"attributes\":[]}}]}";
+		respondWithZippedExport(200, properties, payload);
 		credentials.update(COOKIE, "xsrf-1");
 
-		String body = client().exportMessage(8, 42L, KafkaMessagesClientTest::read);
+		String[] seen = client().exportMessage(8, 42L,
+				(props, fullPayload) -> new String[] { read(props), fullPayload });
 
-		assertThat(body).isEqualTo(json);
+		assertThat(seen[0]).isEqualTo(properties);
+		assertThat(seen[1]).isEqualTo(payload);
 		assertThat(lastRequestMethod.get()).isEqualTo("POST");
 		assertThat(lastRequestUri.get()).isEqualTo("/export-message?offset=42&partition=8");
 		assertThat(lastRequestHeaders.get().get("X-xsrf-token")).isEqualTo(List.of("xsrf-1"));
 		assertThat(lastRequestHeaders.get().get("Cookie")).isEqualTo(List.of(COOKIE));
+	}
+
+	@Test
+	void matchesArchiveEntriesByNameRegardlessOfOrder() throws IOException {
+		server.createContext("/export-message", exchange -> {
+			ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+			try (ZipOutputStream zip = new ZipOutputStream(buffer)) {
+				zip.putNextEntry(new ZipEntry("data-9_payload.json"));
+				zip.write("PAYLOAD".getBytes(StandardCharsets.UTF_8));
+				zip.closeEntry();
+				zip.putNextEntry(new ZipEntry("data-9_properties.json"));
+				zip.write("PROPS".getBytes(StandardCharsets.UTF_8));
+				zip.closeEntry();
+			}
+			byte[] archive = buffer.toByteArray();
+			exchange.sendResponseHeaders(200, archive.length);
+			try (var out = exchange.getResponseBody()) {
+				out.write(archive);
+			}
+			exchange.close();
+		});
+		credentials.update(COOKIE, "xsrf-1");
+
+		String[] seen = client().exportMessage(8, 42L,
+				(props, fullPayload) -> new String[] { read(props), fullPayload });
+
+		assertThat(seen[0]).isEqualTo("PROPS");
+		assertThat(seen[1]).isEqualTo("PAYLOAD");
+	}
+
+	@Test
+	void failsWhenTheArchiveHasNoPayloadEntry() {
+		server.createContext("/export-message", exchange -> {
+			ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+			try (ZipOutputStream zip = new ZipOutputStream(buffer)) {
+				zip.putNextEntry(new ZipEntry("data-1_properties.json"));
+				zip.write("{}".getBytes(StandardCharsets.UTF_8));
+				zip.closeEntry();
+			}
+			byte[] archive = buffer.toByteArray();
+			exchange.sendResponseHeaders(200, archive.length);
+			try (var out = exchange.getResponseBody()) {
+				out.write(archive);
+			}
+			exchange.close();
+		});
+		credentials.update(COOKIE, "xsrf-1");
+
+		assertThatThrownBy(() -> client().exportMessage(8, 42L, (props, payload) -> read(props)))
+				.isInstanceOf(KafkaApiException.class)
+				.hasMessageContaining("payload entry");
 	}
 
 	@Test
@@ -219,7 +280,7 @@ class KafkaMessagesClientTest {
 		});
 		credentials.update(COOKIE, "xsrf-1");
 
-		assertThatThrownBy(() -> client().exportMessage(8, 42L, KafkaMessagesClientTest::read))
+		assertThatThrownBy(() -> client().exportMessage(8, 42L, (props, payload) -> read(props)))
 				.isInstanceOf(KafkaApiException.class)
 				.hasMessageContaining("HTTP 500");
 	}
@@ -229,7 +290,7 @@ class KafkaMessagesClientTest {
 		properties.setEndpoint("http://127.0.0.1:" + server.getAddress().getPort() + "/other");
 		credentials.update(COOKIE, "xsrf-1");
 
-		assertThatThrownBy(() -> client().exportMessage(8, 42L, KafkaMessagesClientTest::read))
+		assertThatThrownBy(() -> client().exportMessage(8, 42L, (props, payload) -> read(props)))
 				.isInstanceOf(KafkaApiException.class)
 				.hasMessageContaining("must end with '/messages'");
 	}

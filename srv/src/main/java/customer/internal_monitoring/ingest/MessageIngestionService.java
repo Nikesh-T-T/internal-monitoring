@@ -166,7 +166,7 @@ public class MessageIngestionService {
 	private ParsedKafkaMessage fetchFullMessage(ParsedKafkaMessage truncated) {
 		try {
 			return client.exportMessage(truncated.kafkaPartition(), truncated.kafkaOffset(),
-					body -> parser.parseExportedMessage(body, properties.getTopic()));
+					(props, fullPayload) -> parser.parseExportedMessage(props, fullPayload, properties.getTopic()));
 		} catch (RuntimeException e) {
 			log.warn("Full-message export failed for partition={} offset={}: {}; keeping truncated payload",
 					truncated.kafkaPartition(), truncated.kafkaOffset(), describe(e));

@@ -87,15 +87,22 @@ public class KafkaMessageParser {
 	/**
 	 * Reads a message exported by the per-message export endpoint.
 	 *
-	 * <p>The export archive wraps the full, untruncated record in
-	 * {@code {"topic": ..., "message": { ...record... }}}. The inner {@code message}
-	 * object carries the same fields as a list-endpoint record, so the standard
-	 * record parsing is reused on it.
+	 * <p>The export archive delivers the record split across two entries: a
+	 * properties entry wrapping the metadata in
+	 * {@code {"topic": ..., "message": { ...record without payload... }}}, and a
+	 * separate payload entry holding the full, untruncated payload as raw JSON.
+	 * The metadata is parsed like a list-endpoint record, and the separately read
+	 * {@code fullPayload} overrides the (absent) inline payload so the service
+	 * name, conversation id, hashes and parse status are recomputed from the
+	 * complete payload.
 	 *
-	 * @throws IOException if the response does not contain a {@code message} object
+	 * @param properties  the {@code _properties.json} entry
+	 * @param fullPayload the raw contents of the {@code _payload.json} entry
+	 * @throws IOException if the properties entry does not contain a {@code message} object
 	 */
-	public ParsedKafkaMessage parseExportedMessage(InputStream body, String topic) throws IOException {
-		try (JsonParser parser = factory.createParser(body)) {
+	public ParsedKafkaMessage parseExportedMessage(InputStream properties, String fullPayload, String topic)
+			throws IOException {
+		try (JsonParser parser = factory.createParser(properties)) {
 			if (parser.nextToken() != JsonToken.START_OBJECT) {
 				throw new IOException("Expected a JSON object but found: " + parser.currentToken());
 			}
@@ -103,7 +110,7 @@ public class KafkaMessageParser {
 				String field = parser.currentName();
 				parser.nextToken();
 				if ("message".equals(field) && parser.currentToken() == JsonToken.START_OBJECT) {
-					return readRecord(parser, topic);
+					return readRecord(parser, topic, fullPayload);
 				}
 				parser.skipChildren();
 			}
@@ -112,6 +119,15 @@ public class KafkaMessageParser {
 	}
 
 	private ParsedKafkaMessage readRecord(JsonParser parser, String topic) throws IOException {
+		return readRecord(parser, topic, null);
+	}
+
+	/**
+	 * Reads one record. When {@code externalPayload} is non-null it replaces any
+	 * inline {@code payload} field, which is how the export path supplies the full
+	 * untruncated payload that the list endpoint had cut off.
+	 */
+	private ParsedKafkaMessage readRecord(JsonParser parser, String topic, String externalPayload) throws IOException {
 		String correlationId = null;
 		String sourceId = null;
 		String eventType = null;
@@ -141,6 +157,10 @@ public class KafkaMessageParser {
 				case "properties" -> readProperties(parser, properties);
 				default -> parser.skipChildren();
 			}
+		}
+
+		if (externalPayload != null) {
+			payload = externalPayload;
 		}
 
 		Map<String, String> attributes = readResourceAttributes(payload);

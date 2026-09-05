@@ -1,5 +1,6 @@
 package customer.internal_monitoring.client;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -9,6 +10,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
+import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import org.springframework.stereotype.Component;
@@ -30,6 +32,15 @@ public class KafkaMessagesClient {
 	@FunctionalInterface
 	public interface BodyReader<T> {
 		T read(InputStream body) throws IOException;
+	}
+
+	/**
+	 * Consumes the two entries of an export archive: the properties entry as a
+	 * stream and the full payload entry already read into a string.
+	 */
+	@FunctionalInterface
+	public interface ExportReader<T> {
+		T read(InputStream properties, String fullPayload) throws IOException;
 	}
 
 	private final KafkaMonitoringProperties properties;
@@ -95,7 +106,7 @@ public class KafkaMessagesClient {
 	 *                           available, the call fails, a non-2xx status is
 	 *                           returned, or the archive is empty
 	 */
-	public <T> T exportMessage(int partition, long offset, BodyReader<T> reader) {
+	public <T> T exportMessage(int partition, long offset, ExportReader<T> reader) {
 		String endpoint = properties.getEndpoint();
 		if (endpoint == null || endpoint.isBlank()) {
 			throw new KafkaApiException("Property 'monitoring.kafka.endpoint' is not configured", -1);
@@ -121,14 +132,40 @@ public class KafkaMessagesClient {
 				throw new KafkaApiException(
 						"Kafka export API returned HTTP " + status + ": " + readErrorBody(body), status);
 			}
-			ZipInputStream zip = new ZipInputStream(body);
-			if (zip.getNextEntry() == null) {
-				throw new KafkaApiException("Kafka export API returned an empty archive", status);
-			}
-			return reader.read(zip);
+			return readExportArchive(new ZipInputStream(body), reader, status);
 		} catch (IOException e) {
 			throw new KafkaApiException("Reading the Kafka export API response failed: " + e.getMessage(), e);
 		}
+	}
+
+	/**
+	 * Splits the export archive into its properties and payload entries and hands
+	 * both to {@code reader}.
+	 *
+	 * <p>The archive holds two entries sharing a {@code data-<ts>} prefix: one
+	 * ending in {@code _properties.json} (the record metadata) and one ending in
+	 * {@code _payload.json} (the full untruncated payload). Entries are matched by
+	 * name so their order in the archive does not matter.
+	 */
+	private <T> T readExportArchive(ZipInputStream zip, ExportReader<T> reader, int status) throws IOException {
+		byte[] properties = null;
+		String payload = null;
+		ZipEntry entry;
+		while ((entry = zip.getNextEntry()) != null) {
+			String name = entry.getName();
+			if (name.endsWith("_payload.json")) {
+				payload = new String(zip.readAllBytes(), StandardCharsets.UTF_8);
+			} else if (name.endsWith("_properties.json")) {
+				properties = zip.readAllBytes();
+			}
+		}
+		if (properties == null) {
+			throw new KafkaApiException("Kafka export archive did not contain a properties entry", status);
+		}
+		if (payload == null) {
+			throw new KafkaApiException("Kafka export archive did not contain a payload entry", status);
+		}
+		return reader.read(new ByteArrayInputStream(properties), payload);
 	}
 
 	/**

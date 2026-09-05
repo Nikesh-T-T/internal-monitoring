@@ -220,17 +220,20 @@ class KafkaMessageParserTest {
 
 	@Test
 	void parsesTheMessageWrapperOfAnExportedRecord() throws IOException {
-		String exported = """
+		String properties = """
 				{"topic":"t","message":{"correlationId":"c1","partition":8,"offset":42,
-				  "payload":"{\\"payload\\":[{\\"resource\\":{\\"attributes\\":[{\\"key\\":\\"sap.service.display_name\\",\\"value\\":{\\"stringValue\\":\\"x-ai-orchagent-srv\\"}}]},\\"scopeSpans\\":[{\\"spans\\":[{\\"name\\":\\"s1\\",\\"attributes\\":[{\\"key\\":\\"gen_ai.conversation.id\\",\\"value\\":{\\"stringValue\\":\\"conv-export\\"}}]}]}]}]}",
-				  "payloadSize":0,"headersSize":10,"properties":[]}}
+				  "payloadSize":123,"headersSize":10,"properties":[]}}
+				""";
+		String fullPayload = """
+				{"payload":[{"resource":{"attributes":[{"key":"sap.service.display_name","value":{"stringValue":"x-ai-orchagent-srv"}}]},"scopeSpans":[{"spans":[{"name":"s1","attributes":[{"key":"gen_ai.conversation.id","value":{"stringValue":"conv-export"}}]}]}]}]}
 				""";
 
 		ParsedKafkaMessage message = parser.parseExportedMessage(
-				new ByteArrayInputStream(exported.getBytes(StandardCharsets.UTF_8)), TOPIC);
+				new ByteArrayInputStream(properties.getBytes(StandardCharsets.UTF_8)), fullPayload, TOPIC);
 
 		assertThat(message.serviceName()).isEqualTo("x-ai-orchagent-srv");
 		assertThat(message.conversationId()).isEqualTo("conv-export");
+		assertThat(message.payload()).isEqualTo(fullPayload);
 		assertThat(message.kafkaPartition()).isEqualTo(8);
 		assertThat(message.kafkaOffset()).isEqualTo(42L);
 		assertThat(message.truncated()).isFalse();
@@ -240,10 +243,10 @@ class KafkaMessageParserTest {
 
 	@Test
 	void rejectsAnExportedResponseWithoutAMessageObject() {
-		String exported = "{\"topic\":\"t\"}";
+		String properties = "{\"topic\":\"t\"}";
 
 		assertThatThrownBy(() -> parser.parseExportedMessage(
-				new ByteArrayInputStream(exported.getBytes(StandardCharsets.UTF_8)), TOPIC))
+				new ByteArrayInputStream(properties.getBytes(StandardCharsets.UTF_8)), "{}", TOPIC))
 				.isInstanceOf(IOException.class)
 				.hasMessageContaining("'message' object");
 	}
