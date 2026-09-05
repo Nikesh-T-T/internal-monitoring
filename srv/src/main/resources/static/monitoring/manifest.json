@@ -152,17 +152,9 @@
               "content": {
                 "body": {
                   "sections": {
-                    "payloadSection": {
-                      "template": "monitoring.view.PayloadSection",
-                      "title": "{i18n>payloadSectionTitle}"
-                    },
-                    "headersSection": {
-                      "template": "monitoring.view.HeadersSection",
-                      "title": "{i18n>headersSectionTitle}",
-                      "position": {
-                        "placement": "After",
-                        "anchor": "payloadSection"
-                      }
+                    "messageContentSection": {
+                      "template": "monitoring.view.MessageContentSection",
+                      "title": "{i18n>messageContentSectionTitle}"
                     }
                   }
                 }

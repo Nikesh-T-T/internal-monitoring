@@ -1,0 +1,54 @@
+<core:FragmentDefinition
+	xmlns="sap.m"
+	xmlns:core="sap.ui.core"
+	xmlns:code="sap.ui.codeeditor">
+
+	<IconTabBar
+		expandable="false"
+		class="sapUiResponsiveContentPadding"
+		core:require="{Formatter: 'monitoring/ext/JsonFormatter'}">
+		<items>
+			<IconTabFilter text="{i18n>payloadSectionTitle}" key="payload">
+				<VBox>
+					<Toolbar>
+						<ToolbarSpacer />
+						<Button
+							text="{i18n>jsonFormat}"
+							icon="sap-icon://syntax"
+							press="Formatter.toggle" />
+					</Toolbar>
+					<code:CodeEditor
+						type="json"
+						editable="false"
+						height="40rem"
+						value="{path: 'payload', formatter: 'Formatter.format'}">
+						<code:customData>
+							<core:CustomData key="field" value="payload" />
+						</code:customData>
+					</code:CodeEditor>
+				</VBox>
+			</IconTabFilter>
+			<IconTabFilter text="{i18n>headersSectionTitle}" key="headers">
+				<VBox>
+					<Toolbar>
+						<ToolbarSpacer />
+						<Button
+							text="{i18n>jsonFormat}"
+							icon="sap-icon://syntax"
+							press="Formatter.toggle" />
+					</Toolbar>
+					<code:CodeEditor
+						type="json"
+						editable="false"
+						height="40rem"
+						value="{path: 'properties', formatter: 'Formatter.format'}">
+						<code:customData>
+							<core:CustomData key="field" value="properties" />
+						</code:customData>
+					</code:CodeEditor>
+				</VBox>
+			</IconTabFilter>
+		</items>
+	</IconTabBar>
+
+</core:FragmentDefinition>
