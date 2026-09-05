@@ -102,6 +102,12 @@
               "contextPath": "/Messages",
               "variantManagement": "Page",
               "initialLoad": true,
+              "share": {
+                "showSendEmail": false,
+                "teams": {
+                  "showMsTeamsOptions": false
+                }
+              },
               "navigation": {
                 "Messages": {
                   "detail": {
