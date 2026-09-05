@@ -72,7 +72,8 @@ annotate MonitoringService.Messages with @(
                 }
             ]
         },
-        Facets                   : [{
+        Facets                   : [],
+        HeaderFacets             : [{
             $Type : 'UI.ReferenceFacet',
             ID    : 'IdentifiersFacet',
             Label : 'Identifiers',
