@@ -161,7 +161,7 @@
                     "downloadMessage": {
                       "id": "downloadMessageAction",
                       "text": "{i18n>downloadMessageAction}",
-                      "press": ".extension.monitoring.ext.DownloadActions.onDownloadMessage",
+                      "press": "monitoring.ext.DownloadActions.onDownloadMessage",
                       "enabled": true,
                       "visible": true
                     }
@@ -197,15 +197,6 @@
     "contentDensities": {
       "compact": true,
       "cozy": true
-    },
-    "extends": {
-      "extensions": {
-        "sap.ui.controllerExtensions": {
-          "sap.fe.templates.ObjectPage.controller.ObjectPageController": {
-            "controllerName": "monitoring.ext.DownloadActions"
-          }
-        }
-      }
     }
   }
 }
