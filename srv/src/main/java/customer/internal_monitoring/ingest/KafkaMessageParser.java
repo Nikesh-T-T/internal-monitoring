@@ -84,6 +84,33 @@ public class KafkaMessageParser {
 		}
 	}
 
+	/**
+	 * Reads a message exported by the per-message export endpoint.
+	 *
+	 * <p>The export archive wraps the full, untruncated record in
+	 * {@code {"topic": ..., "message": { ...record... }}}. The inner {@code message}
+	 * object carries the same fields as a list-endpoint record, so the standard
+	 * record parsing is reused on it.
+	 *
+	 * @throws IOException if the response does not contain a {@code message} object
+	 */
+	public ParsedKafkaMessage parseExportedMessage(InputStream body, String topic) throws IOException {
+		try (JsonParser parser = factory.createParser(body)) {
+			if (parser.nextToken() != JsonToken.START_OBJECT) {
+				throw new IOException("Expected a JSON object but found: " + parser.currentToken());
+			}
+			while (parser.nextToken() != JsonToken.END_OBJECT) {
+				String field = parser.currentName();
+				parser.nextToken();
+				if ("message".equals(field) && parser.currentToken() == JsonToken.START_OBJECT) {
+					return readRecord(parser, topic);
+				}
+				parser.skipChildren();
+			}
+			throw new IOException("Exported response did not contain a 'message' object");
+		}
+	}
+
 	private ParsedKafkaMessage readRecord(JsonParser parser, String topic) throws IOException {
 		String correlationId = null;
 		String sourceId = null;

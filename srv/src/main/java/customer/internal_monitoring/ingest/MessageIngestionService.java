@@ -123,21 +123,25 @@ public class MessageIngestionService {
 
 		client.fetchMessages(body -> {
 			counters.fetched = parser.parse(body, properties.getTopic(), message -> {
-				if (message.payload() == null) {
+				ParsedKafkaMessage effective = message;
+				if (message.truncated() && message.kafkaPartition() != null && message.kafkaOffset() != null) {
+					effective = fetchFullMessage(message);
+				}
+				if (effective.payload() == null) {
 					counters.failed++;
 					return;
 				}
-				if (!PERSISTED_SERVICE_NAME.equals(message.serviceName())) {
+				if (!PERSISTED_SERVICE_NAME.equals(effective.serviceName())) {
 					return;
 				}
-				if (message.conversationId() == null || message.conversationId().isBlank()) {
+				if (effective.conversationId() == null || effective.conversationId().isBlank()) {
 					return;
 				}
-				if (!seenInThisRun.add(message.messageHash())) {
+				if (!seenInThisRun.add(effective.messageHash())) {
 					counters.duplicates++;
 					return;
 				}
-				buffer.add(message);
+				buffer.add(effective);
 				if (buffer.size() >= properties.getBatchSize()) {
 					flush(buffer, ingestedAt, counters);
 				}
@@ -152,6 +156,22 @@ public class MessageIngestionService {
 				counters.fetched, counters.stored, counters.duplicates, counters.failed, durationMillis);
 		return new IngestionOutcome(counters.fetched, counters.stored, counters.duplicates, counters.failed,
 				durationMillis);
+	}
+
+	/**
+	 * Downloads the full message when the list response delivered a truncated payload.
+	 *
+	 * <p>Falls back to the truncated message on any failure so it is never lost.
+	 */
+	private ParsedKafkaMessage fetchFullMessage(ParsedKafkaMessage truncated) {
+		try {
+			return client.exportMessage(truncated.kafkaPartition(), truncated.kafkaOffset(),
+					body -> parser.parseExportedMessage(body, properties.getTopic()));
+		} catch (RuntimeException e) {
+			log.warn("Full-message export failed for partition={} offset={}: {}; keeping truncated payload",
+					truncated.kafkaPartition(), truncated.kafkaOffset(), describe(e));
+			return truncated;
+		}
 	}
 
 	/** Writes the buffered messages that are not stored yet and clears the buffer. */

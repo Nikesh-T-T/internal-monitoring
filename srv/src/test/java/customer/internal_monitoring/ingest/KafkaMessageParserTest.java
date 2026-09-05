@@ -217,4 +217,34 @@ class KafkaMessageParserTest {
 		assertThat(messages).hasSize(1);
 		assertThat(messages.get(0).conversationId()).isEqualTo("conv-99");
 	}
+
+	@Test
+	void parsesTheMessageWrapperOfAnExportedRecord() throws IOException {
+		String exported = """
+				{"topic":"t","message":{"correlationId":"c1","partition":8,"offset":42,
+				  "payload":"{\\"payload\\":[{\\"resource\\":{\\"attributes\\":[{\\"key\\":\\"sap.service.display_name\\",\\"value\\":{\\"stringValue\\":\\"x-ai-orchagent-srv\\"}}]},\\"scopeSpans\\":[{\\"spans\\":[{\\"name\\":\\"s1\\",\\"attributes\\":[{\\"key\\":\\"gen_ai.conversation.id\\",\\"value\\":{\\"stringValue\\":\\"conv-export\\"}}]}]}]}]}",
+				  "payloadSize":0,"headersSize":10,"properties":[]}}
+				""";
+
+		ParsedKafkaMessage message = parser.parseExportedMessage(
+				new ByteArrayInputStream(exported.getBytes(StandardCharsets.UTF_8)), TOPIC);
+
+		assertThat(message.serviceName()).isEqualTo("x-ai-orchagent-srv");
+		assertThat(message.conversationId()).isEqualTo("conv-export");
+		assertThat(message.kafkaPartition()).isEqualTo(8);
+		assertThat(message.kafkaOffset()).isEqualTo(42L);
+		assertThat(message.truncated()).isFalse();
+		assertThat(message.parseStatus()).isEqualTo(ParseStatus.OK);
+		assertThat(message.topic()).isEqualTo(TOPIC);
+	}
+
+	@Test
+	void rejectsAnExportedResponseWithoutAMessageObject() {
+		String exported = "{\"topic\":\"t\"}";
+
+		assertThatThrownBy(() -> parser.parseExportedMessage(
+				new ByteArrayInputStream(exported.getBytes(StandardCharsets.UTF_8)), TOPIC))
+				.isInstanceOf(IOException.class)
+				.hasMessageContaining("'message' object");
+	}
 }

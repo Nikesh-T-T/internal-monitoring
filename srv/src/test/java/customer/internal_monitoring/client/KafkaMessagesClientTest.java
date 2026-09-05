@@ -12,6 +12,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.GZIPOutputStream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +30,8 @@ class KafkaMessagesClientTest {
 	private KafkaMonitoringProperties properties;
 	private ApiCredentialStore credentials;
 	private final AtomicReference<Headers> lastRequestHeaders = new AtomicReference<>();
+	private final AtomicReference<String> lastRequestMethod = new AtomicReference<>();
+	private final AtomicReference<String> lastRequestUri = new AtomicReference<>();
 
 	/** A complete cookie: the endpoint needs the session and the routing cookie. */
 	private static final String COOKIE = "JSESSIONID=abc; __VCAP_ID__=inst-1";
@@ -50,6 +54,8 @@ class KafkaMessagesClientTest {
 	private void respond(int status, String body, boolean gzip) {
 		server.createContext("/messages", exchange -> {
 			lastRequestHeaders.set(exchange.getRequestHeaders());
+			lastRequestMethod.set(exchange.getRequestMethod());
+			lastRequestUri.set(exchange.getRequestURI().toString());
 			byte[] payload = body.getBytes(StandardCharsets.UTF_8);
 			if (gzip) {
 				ByteArrayOutputStream buffer = new ByteArrayOutputStream();
@@ -59,6 +65,27 @@ class KafkaMessagesClientTest {
 				payload = buffer.toByteArray();
 				exchange.getResponseHeaders().add("Content-Encoding", "gzip");
 			}
+			exchange.sendResponseHeaders(status, payload.length);
+			try (var out = exchange.getResponseBody()) {
+				out.write(payload);
+			}
+			exchange.close();
+		});
+	}
+
+	/** Serves {@code /export-message} with the given JSON packed into a ZIP archive. */
+	private void respondWithZippedExport(int status, String json) {
+		server.createContext("/export-message", exchange -> {
+			lastRequestHeaders.set(exchange.getRequestHeaders());
+			lastRequestMethod.set(exchange.getRequestMethod());
+			lastRequestUri.set(exchange.getRequestURI().toString());
+			ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+			try (ZipOutputStream zip = new ZipOutputStream(buffer)) {
+				zip.putNextEntry(new ZipEntry("data-1.json"));
+				zip.write(json.getBytes(StandardCharsets.UTF_8));
+				zip.closeEntry();
+			}
+			byte[] payload = buffer.toByteArray();
 			exchange.sendResponseHeaders(status, payload.length);
 			try (var out = exchange.getResponseBody()) {
 				out.write(payload);
@@ -163,5 +190,47 @@ class KafkaMessagesClientTest {
 		assertThatThrownBy(() -> client().fetchMessages(KafkaMessagesClientTest::read))
 				.isInstanceOf(KafkaApiException.class)
 				.hasMessageContaining("failed");
+	}
+
+	@Test
+	void exportsAMessageByUnwrappingTheZipArchive() {
+		String json = "{\"topic\":\"t\",\"message\":{\"offset\":42}}";
+		respondWithZippedExport(200, json);
+		credentials.update(COOKIE, "xsrf-1");
+
+		String body = client().exportMessage(8, 42L, KafkaMessagesClientTest::read);
+
+		assertThat(body).isEqualTo(json);
+		assertThat(lastRequestMethod.get()).isEqualTo("POST");
+		assertThat(lastRequestUri.get()).isEqualTo("/export-message?offset=42&partition=8");
+		assertThat(lastRequestHeaders.get().get("X-xsrf-token")).isEqualTo(List.of("xsrf-1"));
+		assertThat(lastRequestHeaders.get().get("Cookie")).isEqualTo(List.of(COOKIE));
+	}
+
+	@Test
+	void reportsExportErrorStatuses() {
+		server.createContext("/export-message", exchange -> {
+			byte[] payload = "boom".getBytes(StandardCharsets.UTF_8);
+			exchange.sendResponseHeaders(500, payload.length);
+			try (var out = exchange.getResponseBody()) {
+				out.write(payload);
+			}
+			exchange.close();
+		});
+		credentials.update(COOKIE, "xsrf-1");
+
+		assertThatThrownBy(() -> client().exportMessage(8, 42L, KafkaMessagesClientTest::read))
+				.isInstanceOf(KafkaApiException.class)
+				.hasMessageContaining("HTTP 500");
+	}
+
+	@Test
+	void failsToExportWhenTheEndpointDoesNotEndWithMessages() {
+		properties.setEndpoint("http://127.0.0.1:" + server.getAddress().getPort() + "/other");
+		credentials.update(COOKIE, "xsrf-1");
+
+		assertThatThrownBy(() -> client().exportMessage(8, 42L, KafkaMessagesClientTest::read))
+				.isInstanceOf(KafkaApiException.class)
+				.hasMessageContaining("must end with '/messages'");
 	}
 }
