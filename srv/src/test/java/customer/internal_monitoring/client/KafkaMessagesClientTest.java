@@ -200,6 +200,27 @@ class KafkaMessagesClientTest {
 	}
 
 	@Test
+	void exportsAgainstThePassedEndpointNotThePropertiesEndpoint() throws IOException {
+		String propertiesEntry = "{\"topic\":\"t\",\"message\":{\"offset\":42}}";
+		String payload = "{\"payload\":[{\"resource\":{\"attributes\":[]}}]}";
+		respondWithZippedExport(200, propertiesEntry, payload);
+		credentials.update(COOKIE, "xsrf-1");
+
+		// The properties endpoint is repointed to a bogus host to prove the explicit
+		// endpoint argument wins: a run pins its own endpoint so a concurrent topic
+		// switch on the shared properties cannot redirect the export mid-run.
+		String pinnedEndpoint = properties.getEndpoint();
+		properties.setEndpoint("http://127.0.0.1:1/other-topic/messages");
+
+		String[] seen = client().exportMessage(pinnedEndpoint, 8, 42L,
+				(props, fullPayload) -> new String[] { read(props), fullPayload });
+
+		assertThat(seen[0]).isEqualTo(propertiesEntry);
+		assertThat(seen[1]).isEqualTo(payload);
+		assertThat(lastRequestUri.get()).isEqualTo("/export-message?offset=42&partition=8");
+	}
+
+	@Test
 	void exportsAMessageByUnwrappingTheZipArchive() throws IOException {
 		String properties = "{\"topic\":\"t\",\"message\":{\"offset\":42}}";
 		String payload = "{\"payload\":[{\"resource\":{\"attributes\":[]}}]}";

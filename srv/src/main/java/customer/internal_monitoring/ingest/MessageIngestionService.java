@@ -120,18 +120,23 @@ public class MessageIngestionService {
 		Set<String> seenInThisRun = new HashSet<>();
 		List<ParsedKafkaMessage> buffer = new ArrayList<>(properties.getBatchSize());
 		Instant ingestedAt = Instant.now();
-		boolean filterByServiceName = !properties.getServiceNameFilterExemptTopics().contains(properties.getTopic());
-		boolean exportFullMessage = !properties.getExportExemptTopics().contains(properties.getTopic());
 
-		log.info("Ingestion run: topic={} exportExemptTopics={} exportFullMessage={} filterByServiceName={}",
-				properties.getTopic(), properties.getExportExemptTopics(), exportFullMessage, filterByServiceName);
+		// Pin topic and endpoint for the whole run. A concurrent 'setTopic' repoints
+		// the properties, but a run must stay on the topic it started with: its list
+		// fetch, the derived per-message export URL, and the exemption checks all use
+		// this snapshot so a mid-run switch cannot pair one topic's offsets with
+		// another topic's export endpoint (which yields spurious HTTP 500s).
+		String topic = properties.getTopic();
+		String endpoint = properties.getEndpoint();
+		boolean filterByServiceName = !properties.getServiceNameFilterExemptTopics().contains(topic);
+		boolean exportFullMessage = !properties.getExportExemptTopics().contains(topic);
 
-		client.fetchMessages(body -> {
-			counters.fetched = parser.parse(body, properties.getTopic(), message -> {
+		client.fetchMessages(endpoint, body -> {
+			counters.fetched = parser.parse(body, topic, message -> {
 				ParsedKafkaMessage effective = message;
 				if (exportFullMessage && message.truncated() && message.kafkaPartition() != null
 						&& message.kafkaOffset() != null) {
-					effective = fetchFullMessage(message);
+					effective = fetchFullMessage(message, endpoint, topic);
 				}
 				if (effective.payload() == null) {
 					counters.failed++;
@@ -167,12 +172,14 @@ public class MessageIngestionService {
 	/**
 	 * Downloads the full message when the list response delivered a truncated payload.
 	 *
-	 * <p>Falls back to the truncated message on any failure so it is never lost.
+	 * <p>Uses the run's pinned {@code endpoint} and {@code topic} so the export always
+	 * targets the same topic the coordinates came from. Falls back to the truncated
+	 * message on any failure so it is never lost.
 	 */
-	private ParsedKafkaMessage fetchFullMessage(ParsedKafkaMessage truncated) {
+	private ParsedKafkaMessage fetchFullMessage(ParsedKafkaMessage truncated, String endpoint, String topic) {
 		try {
-			return client.exportMessage(truncated.kafkaPartition(), truncated.kafkaOffset(),
-					(props, fullPayload) -> parser.parseExportedMessage(props, fullPayload, properties.getTopic()));
+			return client.exportMessage(endpoint, truncated.kafkaPartition(), truncated.kafkaOffset(),
+					(props, fullPayload) -> parser.parseExportedMessage(props, fullPayload, topic));
 		} catch (RuntimeException e) {
 			log.warn("Full-message export failed for partition={} offset={}: {}; keeping truncated payload",
 					truncated.kafkaPartition(), truncated.kafkaOffset(), describe(e));

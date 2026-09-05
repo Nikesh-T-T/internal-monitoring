@@ -65,7 +65,21 @@ public class KafkaMessagesClient {
 	 *                           is returned
 	 */
 	public <T> T fetchMessages(BodyReader<T> reader) {
-		String endpoint = properties.getEndpoint();
+		return fetchMessages(properties.getEndpoint(), reader);
+	}
+
+	/**
+	 * Calls the given endpoint and passes the decoded body to {@code reader}.
+	 *
+	 * <p>The endpoint is passed explicitly (rather than read from the properties)
+	 * so a whole ingestion run stays pinned to one topic even if a concurrent topic
+	 * switch repoints {@code monitoring.kafka.endpoint} mid-run.
+	 *
+	 * @throws KafkaApiException if the endpoint is not configured, no credentials
+	 *                           are available, the call fails, or a non-2xx status
+	 *                           is returned
+	 */
+	public <T> T fetchMessages(String endpoint, BodyReader<T> reader) {
 		if (endpoint == null || endpoint.isBlank()) {
 			throw new KafkaApiException("Property 'monitoring.kafka.endpoint' is not configured", -1);
 		}
@@ -108,7 +122,26 @@ public class KafkaMessagesClient {
 	 *                           returned, or the archive is empty
 	 */
 	public <T> T exportMessage(int partition, long offset, ExportReader<T> reader) {
-		String endpoint = properties.getEndpoint();
+		return exportMessage(properties.getEndpoint(), partition, offset, reader);
+	}
+
+	/**
+	 * Downloads the full, untruncated message at the given Kafka coordinates from the
+	 * given endpoint's export sibling.
+	 *
+	 * <p>The list endpoint truncates large payloads; this per-message export endpoint
+	 * returns the complete message. The response is a ZIP archive with a single JSON
+	 * entry, which is unwrapped and handed to {@code reader}.
+	 *
+	 * <p>The endpoint is passed explicitly so the offset/partition (harvested from a
+	 * specific topic's list response) are always exported against that same topic's
+	 * endpoint, even if a concurrent topic switch repoints the properties mid-run.
+	 *
+	 * @throws KafkaApiException if the endpoint is not configured, no credentials are
+	 *                           available, the call fails, a non-2xx status is
+	 *                           returned, or the archive is empty
+	 */
+	public <T> T exportMessage(String endpoint, int partition, long offset, ExportReader<T> reader) {
 		if (endpoint == null || endpoint.isBlank()) {
 			throw new KafkaApiException("Property 'monitoring.kafka.endpoint' is not configured", -1);
 		}
