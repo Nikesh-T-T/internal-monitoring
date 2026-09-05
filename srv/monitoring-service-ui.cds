@@ -55,30 +55,45 @@ annotate MonitoringService.Messages with @(
                 ![@UI.Importance]: #High
             }
         ],
-        FieldGroup #Identifiers  : {
+        FieldGroup #CorrelationId : {
             $Type: 'UI.FieldGroupType',
-            Data : [
-                {
-                    $Type: 'UI.DataField',
-                    Value: correlationId
-                },
-                {
-                    $Type: 'UI.DataField',
-                    Value: conversationId
-                },
-                {
-                    $Type: 'UI.DataField',
-                    Value: tenantId
-                }
-            ]
+            Data : [{
+                $Type: 'UI.DataField',
+                Value: correlationId
+            }]
+        },
+        FieldGroup #ConversationId: {
+            $Type: 'UI.FieldGroupType',
+            Data : [{
+                $Type: 'UI.DataField',
+                Value: conversationId
+            }]
+        },
+        FieldGroup #TenantId      : {
+            $Type: 'UI.FieldGroupType',
+            Data : [{
+                $Type: 'UI.DataField',
+                Value: tenantId
+            }]
         },
         Facets                   : [],
-        HeaderFacets             : [{
-            $Type : 'UI.ReferenceFacet',
-            ID    : 'IdentifiersFacet',
-            Label : 'Identifiers',
-            Target: '@UI.FieldGroup#Identifiers'
-        }]
+        HeaderFacets             : [
+            {
+                $Type : 'UI.ReferenceFacet',
+                ID    : 'CorrelationIdFacet',
+                Target: '@UI.FieldGroup#CorrelationId'
+            },
+            {
+                $Type : 'UI.ReferenceFacet',
+                ID    : 'ConversationIdFacet',
+                Target: '@UI.FieldGroup#ConversationId'
+            },
+            {
+                $Type : 'UI.ReferenceFacet',
+                ID    : 'TenantIdFacet',
+                Target: '@UI.FieldGroup#TenantId'
+            }
+        ]
     }
 );
 
