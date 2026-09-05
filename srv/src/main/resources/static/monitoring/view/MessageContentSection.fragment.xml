@@ -20,7 +20,8 @@
 					<code:CodeEditor
 						type="json"
 						editable="false"
-						height="40rem"
+						height="auto"
+						maxLines="50"
 						value="{path: 'payload', formatter: 'Formatter.format'}">
 						<code:customData>
 							<core:CustomData key="field" value="payload" />
@@ -40,7 +41,8 @@
 					<code:CodeEditor
 						type="json"
 						editable="false"
-						height="40rem"
+						height="auto"
+						maxLines="50"
 						value="{path: 'properties', formatter: 'Formatter.format'}">
 						<code:customData>
 							<core:CustomData key="field" value="properties" />

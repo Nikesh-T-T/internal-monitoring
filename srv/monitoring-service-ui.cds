@@ -55,7 +55,29 @@ annotate MonitoringService.Messages with @(
                 ![@UI.Importance]: #High
             }
         ],
-        Facets                   : []
+        FieldGroup #Identifiers  : {
+            $Type: 'UI.FieldGroupType',
+            Data : [
+                {
+                    $Type: 'UI.DataField',
+                    Value: correlationId
+                },
+                {
+                    $Type: 'UI.DataField',
+                    Value: conversationId
+                },
+                {
+                    $Type: 'UI.DataField',
+                    Value: tenantId
+                }
+            ]
+        },
+        Facets                   : [{
+            $Type : 'UI.ReferenceFacet',
+            ID    : 'IdentifiersFacet',
+            Label : 'Identifiers',
+            Target: '@UI.FieldGroup#Identifiers'
+        }]
     }
 );
 
