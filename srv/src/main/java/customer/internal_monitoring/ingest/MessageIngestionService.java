@@ -130,6 +130,9 @@ public class MessageIngestionService {
 				if (!PERSISTED_SERVICE_NAME.equals(message.serviceName())) {
 					return;
 				}
+				if (message.conversationId() == null || message.conversationId().isBlank()) {
+					return;
+				}
 				if (!seenInThisRun.add(message.messageHash())) {
 					counters.duplicates++;
 					return;

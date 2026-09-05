@@ -129,6 +129,14 @@ class MessageIngestionIntegrationTest {
 	}
 
 	@Test
+	void skipsMessagesThatCarryNoConversationId() {
+		ingestionService.ingest();
+
+		assertThat(storedMessages()).allSatisfy(
+				message -> assertThat(message.getConversationId()).isNotBlank());
+	}
+
+	@Test
 	void doesNotStoreTheSameMessageTwiceAcrossPolls() {
 		ingestionService.ingest();
 		IngestionOutcome second = ingestionService.ingest();
