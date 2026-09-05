@@ -149,6 +149,12 @@
             "settings": {
               "contextPath": "/Messages",
               "editableHeaderContent": false,
+              "share": {
+                "showSendEmail": false,
+                "teams": {
+                  "showMsTeamsOptions": false
+                }
+              },
               "content": {
                 "body": {
                   "sections": {
