@@ -123,6 +123,9 @@ public class MessageIngestionService {
 		boolean filterByServiceName = !properties.getServiceNameFilterExemptTopics().contains(properties.getTopic());
 		boolean exportFullMessage = !properties.getExportExemptTopics().contains(properties.getTopic());
 
+		log.info("Ingestion run: topic={} exportExemptTopics={} exportFullMessage={} filterByServiceName={}",
+				properties.getTopic(), properties.getExportExemptTopics(), exportFullMessage, filterByServiceName);
+
 		client.fetchMessages(body -> {
 			counters.fetched = parser.parse(body, properties.getTopic(), message -> {
 				ParsedKafkaMessage effective = message;
